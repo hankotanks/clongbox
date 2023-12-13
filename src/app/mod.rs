@@ -152,15 +152,13 @@ impl<const P: usize, const T: usize> eframe::App for App<P, T> where
                     if ui.button("Import from file").clicked() {
                         let state = load_state_from_file();
                         
-                        #[cfg(not(target_arch = "wasm32"))]
-                        {
+                        #[cfg(not(target_arch = "wasm32"))] {
                             let state = pollster::block_on(state);
 
                             self.load_handler(state);
                         }
 
-                        #[cfg(target_arch = "wasm32")]
-                        {
+                        #[cfg(target_arch = "wasm32")] {
                             let promise = poll_promise::Promise::spawn_local(state);
                             let promise = Some(promise);
 
@@ -212,8 +210,10 @@ impl<const P: usize, const T: usize> eframe::App for App<P, T> where
         match self {
             App::Unloaded => //
                 show_message(ctx, "Import a language to get started"),
+
             App::Failed => //
                 show_message(ctx, "Failed to import language"),
+
             App::Loading { input } => {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     let size = ui.available_size_before_wrap();
@@ -224,8 +224,22 @@ impl<const P: usize, const T: usize> eframe::App for App<P, T> where
                     ui.add(contents);
                 });
             },
+
+            #[cfg(target_arch = "wasm32")]
+            App::Ready { .. } => {
+                let inner_size = ctx.available_rect().size();
+
+                if inner_size.min(CONFIG.window_min()) == inner_size {
+                    show_message(ctx, "Window is too small to render");
+                } else {
+                    self.show_ready(ctx)
+                }
+            },
+
+            #[cfg(not(target_arch = "wasm32"))]
             App::Ready { .. } => //
-               self.show_ready(ctx),
+                self.show_ready(ctx),
+
             #[cfg(target_arch = "wasm32")]
             App::Import { promise } => {
                 if promise.as_ref().unwrap().ready().is_some() {
@@ -263,6 +277,7 @@ impl<const P: usize, const T: usize> App<P, T> where
 
         let min = CONFIG.window_sidebar_width - left - right;
         let max = ctx.available_rect().width() - CONFIG.window_main_width;
+        let max = max.min(ctx.available_rect().width() * 0.5);
 
         let resizable = ctx.available_rect().width() != CONFIG.window_min().x;
 

@@ -9,7 +9,7 @@ pub enum Element {
 
 #[derive(Clone, Copy, Debug)]
 #[derive(serde::Deserialize, serde::Serialize)]
-#[derive(enum_map::Enum)]
+#[derive(enum_map::Enum, enum_iterator::Sequence)]
 pub enum Field {
     Target,
     Replacement,
