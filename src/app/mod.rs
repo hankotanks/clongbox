@@ -2,11 +2,12 @@ use std::{borrow, io};
 
 use once_cell::unsync::OnceCell;
 
-use crate::{State, Pane, Tool};
+use crate::{State, Pane, Tool, CONFIG};
 use crate::{panes, tools};
 
 pub mod fonts;
 pub mod status;
+pub mod config;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub enum App<const P: usize, const T: usize> where 
@@ -201,7 +202,9 @@ impl<const P: usize, const T: usize> eframe::App for App<P, T> where
 
                 frame.inner_margin.top += ui.spacing().item_spacing.y;
                 frame.show(ui, |ui| {
-                    ui.label("Status bar is unimplemented...");
+                    if let Some(status) = status::get() {
+                        ui.label(format!("{}", status));
+                    }
                 });
             }); 
         });
@@ -256,7 +259,17 @@ impl<const P: usize, const T: usize> App<P, T> where
             panic!();
         };
 
-        egui::SidePanel::right("tools").show(ctx, |ui| {
+        let egui::Margin { left, right, .. } = ctx.style().spacing.window_margin;
+
+        let min = CONFIG.window_sidebar_width - left - right;
+        let max = ctx.available_rect().width() - CONFIG.window_main_width;
+
+        let resizable = ctx.available_rect().width() != CONFIG.window_min().x;
+
+        egui::SidePanel::right("tools")
+            .width_range(egui::Rangef::new(min, max))
+            .resizable(resizable)
+            .show(ctx, |ui| {
             ui.add_space(ui.spacing().item_spacing.y * 2.);
             
             egui::ComboBox::from_label("Select Tool")
@@ -295,7 +308,6 @@ impl<const P: usize, const T: usize> App<P, T> where
 
                     pane.show(state, ui);
                 });
-                
             }
         });
     }

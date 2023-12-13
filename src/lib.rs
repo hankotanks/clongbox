@@ -5,6 +5,8 @@
 mod app;
 pub use app::App;
 pub use app::fonts::FONT_ID;
+pub use app::status;
+pub use app::config::CONFIG;
 
 mod sub;
 pub use sub::widgets;
