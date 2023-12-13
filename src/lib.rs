@@ -1,5 +1,6 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![feature(if_let_guard)]
+#![feature(impl_trait_in_assoc_type)]
 
 mod app;
 pub use app::App;
@@ -14,7 +15,7 @@ pub use state::focus::{Focus, FocusTarget, FocusBuffer};
 
 mod types;
 pub use types::language;
-pub use types::group::{Group, GroupKey};
+pub use types::group::{Group, GroupKey, GroupName};
 pub use types::phoneme::{Phoneme, PhonemeKey};
 pub use types::sc;
 pub use types::selection::Selection;

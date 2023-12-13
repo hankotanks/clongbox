@@ -1,6 +1,25 @@
 use std::ops;
 
-use crate::{Selection, Focus, FocusBuffer};
+use crate::{Selection, Focus, FocusBuffer, PhonemeKey, language::Language};
+
+enum EditorState<K: slotmap::Key> {
+    Active { key: K, content: String },
+    None,
+}
+
+enum EditorResult {
+    Delete,
+    Preserve,
+}
+
+#[allow(unused_variables)]
+fn phoneme_editor(
+    language: Language,
+    state: &mut EditorState<PhonemeKey>,
+    selection: Selection<'_, PhonemeKey>,
+) { // -> EditorResult {
+    
+}
 
 fn selection_list_inner<'a, K, C, I>(
     ui: &mut egui::Ui,
