@@ -298,7 +298,5 @@ impl<const P: usize, const T: usize> App<P, T> where
                 
             }
         });
-
-        
     }
 }

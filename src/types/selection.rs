@@ -7,7 +7,7 @@ pub enum Selection<'a, K: slotmap::Key> {
 }
 
 impl<'a, K: slotmap::Key> Selection<'a, K> {
-    pub fn insert(&mut self, key: K) {
+    fn insert(&mut self, key: K) {
         match self {
             Selection::Single(key_slot) => {
                 let _ = key_slot.insert(key);
@@ -19,7 +19,7 @@ impl<'a, K: slotmap::Key> Selection<'a, K> {
         }
     }
 
-    pub fn remove(&mut self, key: K) {
+    fn remove(&mut self, key: K) {
         match self {
             Selection::Single(key_slot) if let Some(selected_key) = **key_slot => {
                 if selected_key == key {
@@ -40,6 +40,14 @@ impl<'a, K: slotmap::Key> Selection<'a, K> {
             Selection::Single(_) => false,
             Selection::Multiple(key_set) => key_set.contains(&key),
             Selection::None => false,
+        }
+    }
+
+    pub fn toggle(&mut self, key: K) {
+        if self.is_selected(key) {
+            self.remove(key);
+        } else {
+            self.insert(key);
         }
     }
 }

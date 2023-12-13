@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::{ops, mem, vec};
+use std::{ops, mem, vec, fmt};
 use std::sync::Arc;
 
 use slotmap::SlotMap;
@@ -74,6 +74,26 @@ pub struct PhonemeRef<'a> {
     pub grapheme: Option<&'a Arc<str>>,
 }
 
+impl<'a> fmt::Display for PhonemeRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let phoneme = Phoneme {
+            phoneme: self.phoneme.clone(),
+            grapheme: self.grapheme.cloned(),
+        };
+
+        write!(f, "{}", phoneme)
+    }
+}
+
+impl<'a> PhonemeRef<'a> {
+    pub fn to_owned_phoneme(&self) -> Phoneme {
+        Phoneme {
+            phoneme: self.phoneme.clone(),
+            grapheme: self.grapheme.cloned(),
+        }
+    }
+}
+
 pub struct Phonemes<'a> {
     idx: usize,
     keys: Vec<PhonemeKey>,
@@ -116,12 +136,37 @@ pub struct PhonemeRefMut<'a> {
     pub key: PhonemeKey,
     pub phoneme: &'a mut Arc<str>,
     pub grapheme: &'a mut Option<Arc<str>>,
+    pub rm: &'a mut bool,
+}
+
+impl<'a> fmt::Display for PhonemeRefMut<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let phoneme = Phoneme {
+            phoneme: self.phoneme.clone(),
+            grapheme: self.grapheme.clone(),
+        };
+
+        write!(f, "{}", phoneme)
+    }
+}
+
+impl<'a> PhonemeRefMut<'a> {
+    pub fn to_owned_phoneme(&self) -> Phoneme {
+        Phoneme {
+            phoneme: self.phoneme.clone(),
+            grapheme: self.grapheme.clone(),
+        }
+    }
+
+    pub fn delete(&mut self) {
+        *self.rm = true;
+    }
 }
 
 pub struct PhonemesMut<'a> {
     idx: usize,
     keys: Vec<PhonemeKey>,
-    prev: Option<usize>,
+    rm: bool,
     source: Result<&'a mut Language, &'a mut SlotMap<PhonemeKey, Phoneme>>,
 }
 
@@ -130,7 +175,7 @@ impl<'a> From<&'a mut SlotMap<PhonemeKey, Phoneme>> for PhonemesMut<'a> {
         Self {
             idx: 0,
             keys: value.keys().collect(),
-            prev: None,
+            rm: false,
             source: Err(value),
         }
     }
@@ -140,19 +185,19 @@ impl<'a> Iterator for PhonemesMut<'a> {
     type Item = PhonemeRefMut<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.prev.is_some() {
-            let idx_prev = self.prev.take().unwrap();
+        if self.rm {
+            self.idx -= 1;
 
-            let key_prev = self.keys[idx_prev];
+            self.rm = false;
+
+            let key = self.keys[self.idx];
 
             match &mut self.source {
-                Ok(language) => language.phoneme_remove(key_prev),
+                Ok(language) => language.phoneme_remove(key),
                 Err(phonemes) => {
-                    phonemes.remove(key_prev);
+                    phonemes.remove(key);
                 },
             }
-
-            self.idx -= 1;
         }
 
         if self.idx == self.keys.len() { return None; }
@@ -168,13 +213,12 @@ impl<'a> Iterator for PhonemesMut<'a> {
             key,
             phoneme,
             grapheme,
+            rm: &mut self.rm,
         };
 
         let phoneme_ref_mut = unsafe {
             mem::transmute::<PhonemeRefMut<'_>, PhonemeRefMut<'a>>(phoneme_ref_mut)
         };
-
-        let _ = self.prev.insert(self.idx);
 
         self.idx += 1;
 
@@ -238,7 +282,7 @@ impl<'a, Id: Iterator<Item = GroupKey>> Iterator for GroupsMut<'a, Id> {
                 phonemes: PhonemesMut {
                     idx: 0,
                     keys: keys.iter().copied().collect(),
-                    prev: None,
+                    rm: false,
                     source: Err(&mut self.language.phonemes),
                 },
             };
@@ -265,7 +309,7 @@ impl Language {
         PhonemesMut {
             idx: 0,
             keys: self.groups[key].keys.iter().copied().collect(),
-            prev: None,
+            rm: false,
             source: Ok(self),
         }
     }

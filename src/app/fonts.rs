@@ -69,8 +69,7 @@ pub fn ipa_text_width<'a, I>(text: I) -> f32
     where I: Into<borrow::Cow<'a, str>> {
     let text: borrow::Cow<'_, str> = text.into();
 
-    // TODO: I'd like to remove this magic constant
-    let scale = rusttype::Scale::uniform(FONT_ID.size + 2.);
+    let scale = rusttype::Scale::uniform(FONT_ID.size);
 
     let font = unsafe { FONT_SCALING_DATA.get_unchecked() };
 
