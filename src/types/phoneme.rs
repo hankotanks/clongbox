@@ -9,6 +9,17 @@ pub struct Phoneme {
     pub grapheme: Option<Arc<str>>,
 }
 
+impl fmt::Display for Phoneme {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.grapheme {
+            Some(grapheme) => {
+                write!(f, "{} [{}]", self.phoneme.as_ref(), grapheme.as_ref())
+            },
+            None => write!(f, "{}", self.phoneme.as_ref()),
+        }
+    }
+}
+
 impl Phoneme {
     pub fn parse<'a, I>(content: I) -> Result<Self, io::Error>
         where I: Into<borrow::Cow<'a, str>> {
@@ -32,17 +43,6 @@ impl Phoneme {
     }
 }
 
-impl fmt::Display for Phoneme {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.grapheme {
-            Some(grapheme) => {
-                write!(f, "{} [{}]", self.phoneme.as_ref(), grapheme.as_ref())
-            },
-            None => write!(f, "{}", self.phoneme.as_ref()),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[derive(serde::Deserialize, serde::Serialize)]
 pub enum PhonemeSrc { Language, Rep }

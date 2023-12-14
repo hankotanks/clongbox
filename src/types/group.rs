@@ -1,4 +1,6 @@
-use std::{sync::Arc, collections::BTreeSet};
+use std::sync::Arc;
+
+use std::collections::BTreeSet;
 
 use crate::PhonemeKey;
 

@@ -110,23 +110,25 @@ impl<'a> StateParser<'a> {
             }
         )?;
 
-        let mut lexicon = Vec::new();
-        for line in content.lines() {
+        let lexicon_re = regex::Regex::new(r"^[^\|]\S*").unwrap();
+        let lexicon = content.lines().filter_map(|line| {
             let a = categories_re.is_match(line);
             let b = rewrite_rules_re.is_match(line);
             let c = sound_changes_re.is_match(line);
 
-            if !(a || b || c) {
-                lexicon.push(line);
+            if !(a || b || c) && lexicon_re.is_match(line) {
+                Some(line)
+            } else {
+                None
             }
-        }
+        }).collect();
 
-        let romanization_re = regex::Regex::new(r"\|\s*(\S+)\s*\[(\S+)\]")?;
+        let romanization_re = regex::Regex::new(r"[\n^]\|(\S+)\s*\[(\S+)\]")?;
         let romanization = romanization_re
             .captures_iter(content)
             .filter_map(|capture| {
-                if let Some(grapheme) = capture.get(1).map(|m| m.as_str()) {
-                    let phoneme = capture.get(0).unwrap().as_str();
+                if let Some(grapheme) = capture.get(2).map(|m| m.as_str()) {
+                    let phoneme = capture.get(1).unwrap().as_str();
 
                     Some((phoneme, grapheme))
                 } else {
