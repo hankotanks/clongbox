@@ -1,4 +1,4 @@
-use std::{sync::Arc, fmt};
+use std::{sync::Arc, fmt, borrow, io};
 
 slotmap::new_key_type! { pub struct PhonemeKey; }
 
@@ -7,6 +7,29 @@ slotmap::new_key_type! { pub struct PhonemeKey; }
 pub struct Phoneme {
     pub phoneme: Arc<str>,
     pub grapheme: Option<Arc<str>>,
+}
+
+impl Phoneme {
+    pub fn parse<'a, I>(content: I) -> Result<Self, io::Error>
+        where I: Into<borrow::Cow<'a, str>> {
+        
+        let content: borrow::Cow<'_, str> = content.into();
+        let content = content.as_ref();
+
+        regex::Regex::new(r"([^\s\[\]]+)(\s*\[\s*\S+\s*\])?")
+            .unwrap()
+            .captures(content.trim())
+            .ok_or(io::Error::from(io::ErrorKind::InvalidData))
+            .map(|capture| {
+                Self {
+                    phoneme: Arc::from(capture.get(0).unwrap().as_str()),
+                    grapheme: capture
+                        .get(1)
+                        .map(|grapheme| grapheme.as_str())
+                        .map(Arc::from),
+                }
+            })
+    }
 }
 
 impl fmt::Display for Phoneme {
@@ -19,3 +42,7 @@ impl fmt::Display for Phoneme {
         }
     }
 }
+
+#[derive(Clone, Copy)]
+#[derive(serde::Deserialize, serde::Serialize)]
+pub enum PhonemeSrc { Language, Rep }

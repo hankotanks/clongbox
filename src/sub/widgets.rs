@@ -1,7 +1,6 @@
-use std::sync::Arc;
 use std::{ops, mem};
 
-use crate::{Selection, Phoneme};
+use crate::{Selection, Phoneme, PhonemeSrc};
 use crate::{Focus, FocusBuffer};
 use crate::PhonemeKey;
 use crate::language::PhonemeRefMut;
@@ -20,7 +19,7 @@ fn phoneme_editor(
     state: &mut EditorState<PhonemeKey, Phoneme>,
     focus: &mut Focus,
     mut selection: Selection<'_, PhonemeKey>,
-    rep: bool,
+    src: PhonemeSrc,
 ) {
     match state {
         EditorState::Active { key, content, original } if *key == phoneme.key => {
@@ -34,23 +33,19 @@ fn phoneme_editor(
                 if content.trim().is_empty() {
                     phoneme.delete();
                 } else {
-                    let re = regex::Regex::new(r"([^\s\[\]]+)(\s*\[\s*\S+\s*\])?").unwrap();
+                    let PhonemeRefMut { phoneme, grapheme, .. } = phoneme;
 
-                    if let Some(capture) = re.captures(content.trim()) {
-                        let PhonemeRefMut { phoneme, grapheme, .. } = phoneme;
-                        
-                        *phoneme = Arc::from(capture.get(0).unwrap().as_str());
+                    match Phoneme::parse(content.as_str()) {
+                        Ok(new_phoneme) => {
+                            *phoneme = new_phoneme.phoneme;
+                            *grapheme = new_phoneme.grapheme;
+                        },
+                        Err(_) => {
+                            let original = original.to_owned();
 
-                        if let Some(capture) = capture.get(1) {
-                            let _ = grapheme.insert(Arc::from(capture.as_str()));
-                        } else {
-                            let _ = grapheme.take();
-                        }
-                    } else {
-                        let original = original.to_owned();
-
-                        *(phoneme.phoneme) = original.phoneme;
-                        *(phoneme.grapheme) = original.grapheme;
+                            *phoneme = original.phoneme;
+                            *grapheme = original.grapheme;
+                        },
                     }
                 }
 
@@ -60,7 +55,7 @@ fn phoneme_editor(
         _ => {
             let PhonemeRefMut { key, .. } = phoneme;
 
-            let buffer = FocusBuffer::Phoneme { key, rep };
+            let buffer = FocusBuffer::Phoneme { key, src };
 
             let content = egui::RichText::new(format!("{}", phoneme))
                 .font(fonts::FONT_ID.to_owned());

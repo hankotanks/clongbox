@@ -18,7 +18,7 @@ pub use state::focus::{Focus, FocusTarget, FocusBuffer};
 mod types;
 pub use types::language;
 pub use types::group::{Group, GroupKey, GroupName};
-pub use types::phoneme::{Phoneme, PhonemeKey};
+pub use types::phoneme::{Phoneme, PhonemeKey, PhonemeSrc};
 pub use types::sc;
 pub use types::selection::Selection;
 

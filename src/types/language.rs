@@ -2,15 +2,146 @@ use std::collections::BTreeSet;
 use std::{ops, mem, vec, fmt};
 use std::sync::Arc;
 
+use bimap::BiHashMap;
+use egui::ahash::HashMap;
 use slotmap::SlotMap;
 use slotmap::basic::Keys;
 
 use crate::{Phoneme, PhonemeKey, GroupName};
 use crate::{Group, GroupKey};
 
+#[derive(Default)]
+pub struct LanguageRaw<'a>(Vec<(GroupName, Vec<(&'a str, Option<&'a str>)>)>);
+
+impl<'a> LanguageRaw<'a> {
+    pub fn parse(
+        categories: &[(&'a str, &'a str)], 
+        romanization: &HashMap<&'a str, &'a str>, 
+        rewrite_rules: &BiHashMap<&'a str, &'a str>
+    ) -> Self {
+        let mut language_raw = Self::default();
+
+        for (group_abbrev, raw_phonemes) in categories.iter().copied() {
+            let mut group = Vec::new();
+
+            // NOTE: If I wasn't so tired right now I'd use a bit mask
+            let mut mask: HashMap<usize, usize> = HashMap::default();
+
+            for replacement in rewrite_rules.left_values().copied() {
+                match raw_phonemes.find(replacement) {
+                    Some(idx) => {
+                        mask.insert(idx, replacement.chars().count());
+
+                        group.push(replacement);
+                    },
+                    None => { /*  */ },
+                }
+            }
+
+            let mut skip = 0;
+
+            let mut char_indices = raw_phonemes
+                .char_indices()
+                .map(|(idx, _)| idx).peekable();
+
+            while let Some(idx) = char_indices.next() {
+                if skip > 0 {
+                    skip -= 1;
+                } else {
+                    match mask.get(&idx).copied() {
+                        Some(phoneme_len) => {
+                            skip = phoneme_len;
+                        },
+                        None => {
+                            let raw_phoneme = match char_indices.peek() {
+                                Some(&next_idx) => &raw_phonemes[idx..next_idx],
+                                None => &raw_phonemes[idx..],
+                            };
+
+                            group.push(raw_phoneme);
+                        },
+                    }
+                }
+            }
+
+            let abbrev = group_abbrev.chars().next().unwrap();
+
+            let group_name = match rewrite_rules.get_by_right(group_abbrev) {
+                Some(&group_name_full) => GroupName::Full { 
+                    name: Arc::from(group_name_full), 
+                    abbrev,
+                },
+                None => GroupName::Abbrev(abbrev),
+            };
+
+            let group = group.into_iter().map(|phoneme| {
+                let grapheme = romanization.get(phoneme).cloned();
+
+                (phoneme, grapheme)
+            }).collect();
+
+            language_raw.0.push((group_name, group));
+        }
+
+        language_raw
+    }
+}
+
+#[derive(Default)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct Language {
     phonemes: SlotMap<PhonemeKey, Phoneme>,
+    phoneme_table: Vec<Phoneme>,
     groups: SlotMap<GroupKey, Group>,
+}
+
+impl<'a> From<LanguageRaw<'a>> for Language {
+    fn from(value: LanguageRaw<'a>) -> Self {
+        let mut phonemes = SlotMap::with_key();
+        let mut phoneme_table = HashMap::default();
+
+        let mut groups = SlotMap::with_key();
+
+        for (name, raw_phonemes) in value.0.into_iter() {
+            let mut group = Group {
+                name,
+                keys: BTreeSet::default(),
+            };
+
+            for (raw_phoneme, grapheme) in raw_phonemes.into_iter() {
+                let phoneme_key = match phoneme_table.get(raw_phoneme).copied() {
+                    Some(phoneme_key) => phoneme_key,
+                    None => {
+                        let phoneme = Phoneme {
+                            phoneme: Arc::from(raw_phoneme),
+                            grapheme: grapheme.map(|grapheme| Arc::from(grapheme)),
+                        };
+
+                        let phoneme_key = phonemes.insert(phoneme);
+
+                        phoneme_table.insert(raw_phoneme, phoneme_key);
+    
+                        phoneme_key
+                    },
+                };
+
+                group.keys.insert(phoneme_key);
+            }
+
+            groups.insert(group);
+        }
+
+        let phoneme_table = phoneme_table
+            .into_iter()
+            .map(|(_, phoneme_key)| phonemes[phoneme_key].clone())
+            .collect();
+
+        Self {
+            phonemes,
+            phoneme_table,
+            groups,
+        }
+    }
 }
 
 impl ops::Index<PhonemeKey> for Language {

@@ -1,6 +1,7 @@
-use crate::{sc, PhonemeKey, GroupKey};
+use crate::sc;
+use crate::{GroupKey, PhonemeKey, PhonemeSrc};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[derive(serde::Deserialize, serde::Serialize)]
 pub enum FocusTarget {
     Sc { field: sc::Field, head: bool, tail: bool, nested: bool },
@@ -20,7 +21,8 @@ impl FocusTarget {
             FocusTarget::Sc { field, nested, head, tail } => {
                 match field {
                     sc::Field::Target => match *buffer {
-                        FocusBuffer::Phoneme { rep, .. } if !rep => true,
+                        FocusBuffer::Phoneme { src, .. } //
+                            if matches!(src, PhonemeSrc::Language) => true,
                         FocusBuffer::Group(_) => true,
                         FocusBuffer::Any if !nested => true,
                         _ => false,
@@ -32,14 +34,16 @@ impl FocusTarget {
                         _ => false,
                     },
                     sc::Field::EnvStart => match *buffer {
-                        FocusBuffer::Phoneme { rep, .. } if !rep => true,
+                        FocusBuffer::Phoneme { src, .. } //
+                            if matches!(src, PhonemeSrc::Language) => true,
                         FocusBuffer::Group(_) => true,
                         FocusBuffer::Any if !nested => true,
                         FocusBuffer::Boundary if head => true,
                         _ => false,
                     },
                     sc::Field::EnvEnd => match *buffer {
-                        FocusBuffer::Phoneme { rep, .. } if !rep => true,
+                        FocusBuffer::Phoneme { src, .. } //
+                            if matches!(src, PhonemeSrc::Language) => true,
                         FocusBuffer::Group(_) => true,
                         FocusBuffer::Any if !nested => true,
                         FocusBuffer::Boundary if tail => true,
@@ -55,16 +59,16 @@ impl FocusTarget {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[derive(serde::Deserialize, serde::Serialize)]
 pub enum FocusBuffer {
-    Phoneme { key: PhonemeKey, rep: bool },
+    Phoneme { key: PhonemeKey, src: PhonemeSrc },
     Group(GroupKey),
     Any,
     Boundary,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Focus {
     target: FocusTarget,
