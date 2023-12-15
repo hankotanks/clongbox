@@ -33,20 +33,20 @@ impl FocusTarget {
                         FocusBuffer::Any if !nested => true,
                         _ => false,
                     },
-                    sc::Field::EnvStart => match *buffer {
+                    sc::Field::EnvStart { has_boundary } => match *buffer {
                         FocusBuffer::Phoneme { src, .. } //
                             if matches!(src, PhonemeSrc::Language) => true,
                         FocusBuffer::Group(_) => true,
                         FocusBuffer::Any if !nested => true,
-                        FocusBuffer::Boundary if head => true,
+                        FocusBuffer::Boundary if head && !has_boundary => true,
                         _ => false,
                     },
-                    sc::Field::EnvEnd => match *buffer {
+                    sc::Field::EnvEnd { has_boundary } => match *buffer {
                         FocusBuffer::Phoneme { src, .. } //
                             if matches!(src, PhonemeSrc::Language) => true,
                         FocusBuffer::Group(_) => true,
                         FocusBuffer::Any if !nested => true,
-                        FocusBuffer::Boundary if tail => true,
+                        FocusBuffer::Boundary if tail && !has_boundary => true,
                         _ => false,
                     },
                 }

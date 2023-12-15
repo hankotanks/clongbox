@@ -91,8 +91,10 @@ impl<'a> LanguageRaw<'a> {
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Language {
     phonemes: SlotMap<PhonemeKey, Phoneme>,
-    phoneme_table: Vec<Phoneme>,
     groups: SlotMap<GroupKey, Group>,
+
+    // NOTE: This is only valid in the parsing stage of the import process
+    pub phoneme_table: Vec<Phoneme>,
 }
 
 impl<'a> From<LanguageRaw<'a>> for Language {
