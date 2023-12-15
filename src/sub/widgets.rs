@@ -1,4 +1,4 @@
-use std::{ops, mem, fmt};
+use std::mem;
 
 use crate::{Selection, Phoneme, PhonemeSrc};
 use crate::{Focus, FocusBuffer};
@@ -64,31 +64,27 @@ fn phoneme_editor(
 
             let buffer = FocusBuffer::Phoneme { key, src };
 
-            let content = egui::RichText::new(format!("{}", phoneme))
-                .font(fonts::FONT_ID.to_owned());
+            focus.show_if_valid(buffer, ui, |ui| {
+                let content = egui::RichText::new(format!("{}", phoneme))
+                    .font(fonts::FONT_ID.to_owned());
 
-            focus.show_if_valid(
-                buffer, ui, 
-                |ui| ui.button(content.clone()),
-                |ui| {
-                    let response = ui.toggle_value(
-                        &mut selection.is_selected(key), 
-                        content.clone()
-                    );
+                ui.toggle_value(
+                    &mut selection.is_selected(key), 
+                    content
+                )
+            }).map(|response| {
+                if response.clicked() {
+                    selection.toggle(key);
+                } else if response.secondary_clicked() {
+                    let original = phoneme.to_owned_phoneme();
 
-                    if response.clicked() {
-                        selection.toggle(key);
-                    } else if response.secondary_clicked() {
-                        let original = phoneme.to_owned_phoneme();
-
-                        *state = EditorState::Active { 
-                            key, 
-                            content: format!("{}", phoneme), 
-                            original 
-                        };
-                    }
+                    *state = EditorState::Active { 
+                        key, 
+                        content: format!("{}", phoneme), 
+                        original 
+                    };
                 }
-            );
+            });
         },
     }
 }
@@ -105,74 +101,5 @@ pub fn phoneme_selection_list<'a, P>(
         for phoneme in phonemes {
             phoneme_editor(ui, phoneme, phoneme_editor_state, focus, &mut selection, phoneme_src);
         }
-    });
-}
-
-#[allow(dead_code)]
-fn selection_list_inner<'a, K, C, Ki, I>(
-    ui: &mut egui::Ui,
-    mut selection: Selection<'a, K>,
-    focus: &mut Focus,
-    collection: &mut C,
-    collection_keys: Ki,
-    buffer: fn(K) -> FocusBuffer,
-) where
-    K: slotmap::Key,
-    C: ops::IndexMut<K, Output = I>,
-    Ki: Iterator<Item = K>,
-    I: fmt::Display {
-
-    for key in collection_keys { 
-        let content = format!("{}", collection[key]);
-
-        focus.show_if_valid(
-            (buffer)(key), ui,
-            |ui| ui.button(&content),
-            |ui| {
-                if ui.toggle_value(&mut selection.is_selected(key), &content).clicked() {
-                    selection.toggle(key);
-                }
-            }
-        ); 
-    }
-}
-
-#[allow(dead_code)]
-fn selection_list_wrapped<'a, K, C, Ki, I>(
-    ui: &mut egui::Ui,
-    selection: Selection<'a, K>,
-    focus: &mut Focus,
-    collection: &mut C,
-    collection_keys: Ki,
-    buffer_from_key: fn(K) -> FocusBuffer,
-) where
-    K: slotmap::Key,
-    C: ops::IndexMut<K, Output = I>,
-    Ki: Iterator<Item = K>,
-    I: fmt::Display {
-
-    ui.horizontal_wrapped(|ui| {
-        selection_list_inner(ui, selection, focus, //
-            collection, collection_keys, buffer_from_key);
-    });
-}
-
-#[allow(dead_code)]
-fn selection_list<'a, K, C, Ki, I>(
-    ui: &mut egui::Ui,
-    selection: Selection<'a, K>,
-    focus: &mut Focus,
-    collection: &mut C,
-    collection_keys: Ki,
-    buffer_from_key: fn(K) -> FocusBuffer,
-) where
-    K: slotmap::Key,
-    C: ops::IndexMut<K, Output = I>,
-    Ki: Iterator<Item = K>,
-    I: fmt::Display {
-
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        selection_list_inner(ui, selection, focus, //
-            collection, collection_keys, buffer_from_key);
     });
 }

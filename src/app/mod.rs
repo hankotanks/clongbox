@@ -295,7 +295,9 @@ impl<const P: usize, const T: usize> App<P, T> where
                     for (idx, tool) in tools.iter().enumerate() {
                         let name = tool.get().unwrap().name();
 
-                        ui.selectable_value(tool_active, idx, name);
+                        if ui.selectable_value(tool_active, idx, name).clicked() {
+                            state.focus.clear();
+                        }
                     }
                 });
 
@@ -320,6 +322,7 @@ impl<const P: usize, const T: usize> App<P, T> where
             if let Some(pane) = panes[*pane_active].get_mut() {
                 egui::Frame::default()
                     .stroke(ui.visuals().window_stroke)
+                    .inner_margin(ui.spacing().window_margin)
                     .show(ui, |ui| {
 
                     pane.show(state, ui);

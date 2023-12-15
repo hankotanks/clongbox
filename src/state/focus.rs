@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::sc;
+use crate::{sc, CONFIG};
 use crate::{GroupKey, PhonemeKey, PhonemeSrc};
 
 #[derive(Clone, Copy)]
@@ -70,47 +70,72 @@ pub enum FocusBuffer {
     Boundary,
 }
 
-#[derive(Default)]
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct Focus {
-    target: FocusTarget,
-    buffer: Option<FocusBuffer>,
+pub enum Focus {
+    Active { 
+        id: egui::Id, 
+        target: FocusTarget, 
+        buffer: Option<FocusBuffer> 
+    },
+    None,
+}
+
+impl Default for Focus {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl Focus {
-    pub fn set(&mut self, target: FocusTarget) {
-        self.target = target;
+    pub fn set(&mut self, id: egui::Id, target: FocusTarget) {
+        let focus = Self::Active { id, target, buffer: None };
 
-        self.buffer = None;
+        let _ = mem::replace(self, focus);
     }
 
     pub fn clear(&mut self) {
-        self.target = FocusTarget::None;
-
-        self.buffer = None;
+        let _ = mem::take(self);
     }
 
-    pub fn take(&mut self, request: mem::Discriminant<FocusTarget>) -> Option<FocusBuffer> {
-        if mem::discriminant(&self.target) == request {
-            self.buffer.take()
-        } else {
-            None
+    pub fn take(&mut self, from: egui::Id) -> Option<FocusBuffer> {
+        match self {
+            Focus::Active { id, buffer, .. } if *id == from => 
+                buffer.take(),
+            _ => None,
         }
     }
 
-    pub fn show_if_valid<R>(
-        &mut self, 
-        buffer: FocusBuffer,
+    /// This function requires a contract that the caller will not attach
+    /// any event handlers to the items added in `widgets`. 
+    /// If no selection is ongoing, the response is returned, allowing the user
+    /// to add their own handlers
+    pub fn show_if_valid(
+        &mut self,
+        buffer_temp: FocusBuffer,
         ui: &mut egui::Ui,
-        mut valid: impl FnMut(&mut egui::Ui) -> egui::Response,
-        mut invalid: impl FnMut(&mut egui::Ui) -> R,
-    ) {
-        if self.target.is_valid(&buffer) {
-            if (valid)(ui).clicked() {
-                let _ = self.buffer.insert(buffer);
-            }
-        } else {
-            (invalid)(ui);
+        mut widget: impl FnMut(&mut egui::Ui) -> egui::Response,
+    ) -> Option<egui::Response> {
+        let response = (widget)(ui);
+
+        match self {
+            Focus::Active { target, buffer, .. } => {
+                if target.is_valid(&buffer_temp) {
+                    ui.painter().rect_stroke(
+                        response.rect, 
+                        CONFIG.selection_rounding, 
+                        CONFIG.selection_stroke
+                    );
+        
+                    if response.interact(egui::Sense::click()).clicked() {
+                        let _ = buffer.insert(buffer_temp);
+                    }
+        
+                    None
+                } else {
+                    Some(response)
+                }
+            },
+            Focus::None => Some(response),
         }
     }
 }

@@ -24,6 +24,7 @@ pub struct State {
 
     pub lexicon: Vec<sync::Arc<str>>,
 
+    #[serde(skip)]
     pub focus: Focus,
 }
 
