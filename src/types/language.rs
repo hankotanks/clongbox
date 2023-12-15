@@ -269,7 +269,7 @@ pub struct PhonemeRefMut<'a> {
     pub key: PhonemeKey,
     pub phoneme: &'a mut Arc<str>,
     pub grapheme: &'a mut Option<Arc<str>>,
-    pub rm: &'a mut bool,
+    rm: &'a mut bool,
 }
 
 impl<'a> fmt::Display for PhonemeRefMut<'a> {
@@ -331,6 +331,8 @@ impl<'a> Iterator for PhonemesMut<'a> {
                     phonemes.remove(key);
                 },
             }
+
+            self.keys.remove(self.idx);
         }
 
         if self.idx == self.keys.len() { return None; }
@@ -438,10 +440,27 @@ impl Language {
         }
     }
 
+    pub fn phonemes_all(&mut self) -> Phonemes<'_> {
+        Phonemes {
+            idx: 0,
+            keys: self.phonemes.keys().collect(),
+            source: &self.phonemes,
+        }
+    }
+
     pub fn phonemes_mut(&mut self, key: GroupKey) -> PhonemesMut<'_> {
         PhonemesMut {
             idx: 0,
             keys: self.groups[key].keys.iter().copied().collect(),
+            rm: false,
+            source: Ok(self),
+        }
+    }
+
+    pub fn phonemes_mut_all(&mut self) -> PhonemesMut<'_> {
+        PhonemesMut {
+            idx: 0,
+            keys: self.phonemes.keys().collect(),
             rm: false,
             source: Ok(self),
         }

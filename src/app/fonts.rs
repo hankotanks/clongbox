@@ -77,7 +77,7 @@ pub fn ipa_text_width<'a, I>(text: I) -> f32
         .layout(text.as_ref(), scale, rusttype::point(0.0, 0.0))
         .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
         .last()
-        .unwrap_or(0.0)
+        .unwrap_or(0.0) * 1.45 // TODO: Magic constant
 }
 
 pub fn load_fonts(selection: Font) -> egui::FontDefinitions {

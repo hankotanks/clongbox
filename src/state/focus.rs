@@ -1,3 +1,5 @@
+use std::mem;
+
 use crate::sc;
 use crate::{GroupKey, PhonemeKey, PhonemeSrc};
 
@@ -88,15 +90,23 @@ impl Focus {
         self.buffer = None;
     }
 
+    pub fn take(&mut self, request: mem::Discriminant<FocusTarget>) -> Option<FocusBuffer> {
+        if mem::discriminant(&self.target) == request {
+            self.buffer.take()
+        } else {
+            None
+        }
+    }
+
     pub fn show_if_valid<R>(
         &mut self, 
         buffer: FocusBuffer,
         ui: &mut egui::Ui,
-        valid: egui::RichText,
+        mut valid: impl FnMut(&mut egui::Ui) -> egui::Response,
         mut invalid: impl FnMut(&mut egui::Ui) -> R,
     ) {
         if self.target.is_valid(&buffer) {
-            if ui.button(valid).clicked() {
+            if (valid)(ui).clicked() {
                 let _ = self.buffer.insert(buffer);
             }
         } else {

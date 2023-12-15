@@ -33,10 +33,15 @@ impl Phoneme {
             .ok_or(io::Error::from(io::ErrorKind::InvalidData))
             .map(|capture| {
                 Self {
-                    phoneme: Arc::from(capture.get(0).unwrap().as_str()),
+                    phoneme: Arc::from(capture.get(1).unwrap().as_str().trim()),
                     grapheme: capture
-                        .get(1)
-                        .map(|grapheme| grapheme.as_str())
+                        .get(2)
+                        .map(|grapheme| grapheme
+                            .as_str()
+                            .trim()[1..(grapheme.as_str().len() - 2)]
+                            .trim()
+                        )
+                        .filter(|grapheme| !grapheme.is_empty())
                         .map(Arc::from),
                 }
             })
