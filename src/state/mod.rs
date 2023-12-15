@@ -40,6 +40,7 @@ impl State {
     }
 }
 
+#[derive(Debug)]
 pub struct StateParser<'a> {
     categories: Vec<(&'a str, &'a str)>,
     sound_changes: Vec<&'a str>,
@@ -100,7 +101,7 @@ impl<'a> StateParser<'a> {
             }
         )?;
 
-        let sound_changes_re = regex::Regex::new(r"\S*/\S*/\S*_\S*")?;
+        let sound_changes_re = regex::Regex::new("\\S*[\\/\u{2192}]\\S*\\/\\S*_\\S*")?;
         let sound_changes = collect_matches(&sound_changes_re, content, 
             Vec::new(), 
             |sound_changes, m| {
@@ -176,8 +177,10 @@ impl<'a> Into<State> for StateParser<'a> {
 
                 match parsed {
                     Ok(sound_change) => Some(sound_change),
-                    Err(_) => {
-                        broken.push(sync::Arc::from(sound_change));
+                    Err(err) => {
+                        let err = format!("{}", err);
+
+                        broken.push(sync::Arc::from(err.as_str()));
 
                         None
                     },

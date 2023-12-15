@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 
 use std::collections::BTreeSet;
@@ -10,6 +11,16 @@ slotmap::new_key_type! { pub struct GroupKey; }
 pub enum GroupName {
     Full { name: Arc<str>, abbrev: char },
     Abbrev(char),
+}
+
+impl fmt::Display for GroupName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            GroupName::Full { name, abbrev } => //
+                write!(f, "{} ({})", name.as_ref(), abbrev),
+            GroupName::Abbrev(abbrev) => write!(f, "{}", abbrev),
+        }
+    }
 }
 
 impl GroupName {
