@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, io, borrow};
 use std::sync::Arc;
 
 use std::collections::BTreeSet;
@@ -32,6 +32,12 @@ impl GroupName {
             GroupName::Abbrev(abbrev) if other.starts_with(*abbrev) => true,
             _ => false,
         }
+    }
+
+    pub fn parse<'a, I>(content: I) -> Result<Self, io::Error>
+        where I: Into<borrow::Cow<'a, str>> {
+
+        Err(io::Error::from(io::ErrorKind::InvalidData))
     }
 }
 

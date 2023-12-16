@@ -397,17 +397,29 @@ pub struct GroupRefMut<'a> {
     pub key: GroupKey,
     pub name: &'a mut GroupName,
     pub phonemes: PhonemesMut<'a>,
+    rm: &'a mut Option<GroupKey>,
+}
+
+impl<'a> GroupRefMut<'a> {
+    pub fn delete(&mut self) {
+        let _ = self.rm.insert(self.key);
+    }
 }
 
 pub struct GroupsMut<'a, Id: Iterator<Item = GroupKey>> {
     keys: Id,
     language: &'a mut Language,
+    rm: Option<GroupKey>,
 }
 
 impl<'a, Id: Iterator<Item = GroupKey>> Iterator for GroupsMut<'a, Id> {
     type Item = GroupRefMut<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some(key_prev) = self.rm.take() {
+            self.language.group_remove(key_prev);   
+        }
+
         self.keys.next().map(|key| {
             let Group { name, keys } = &mut self.language.groups[key];
 
@@ -420,6 +432,7 @@ impl<'a, Id: Iterator<Item = GroupKey>> Iterator for GroupsMut<'a, Id> {
                     rm: false,
                     source: Err(&mut self.language.phonemes),
                 },
+                rm: &mut self.rm,
             };
 
             let group_ref_mut = unsafe {
@@ -479,6 +492,7 @@ impl Language {
         GroupsMut { 
             keys, 
             language: self, 
+            rm: None,
         }
     }
 }

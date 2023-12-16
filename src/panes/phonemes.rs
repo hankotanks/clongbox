@@ -1,9 +1,11 @@
-use crate::{widgets::{self, EditorState}, PhonemeKey, Selection, PhonemeSrc, Phoneme};
+use crate::widgets;
+use crate::{PhonemeKey, PhonemeSrc};
+use crate::Selection;
 
 #[derive(Default)]
 pub struct PhonemePane {
     phoneme_active: Option<PhonemeKey>,
-    phoneme_editor_state: EditorState<PhonemeKey, Phoneme>,
+    phoneme_editor_state: widgets::EditorState<PhonemeKey>,
 }
 
 impl super::Pane for PhonemePane {
