@@ -213,10 +213,6 @@ impl Field {
                     idx += raw_any.len() + 2;
                 },
                 (Some('#'), true) => {
-                    // TODO: This should involve checking to see 
-                    // if the boundary is in a valid position
-                    // EVERY rule applied to sound change creation in the UI 
-                    // should be reflected here
                     let tail = (nested && tail) || (!nested && tail_curr);
 
                     match self {

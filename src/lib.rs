@@ -11,6 +11,7 @@ pub use app::config::CONFIG;
 
 mod sub;
 pub use sub::widgets;
+pub use sub::layout;
 
 mod state;
 pub use state::State;

@@ -15,10 +15,10 @@ impl Default for Config {
             window_main_width: 460., 
             window_main_height: 480., 
             selection_stroke: egui::Stroke {
-                width: 2.,
+                width: 1.5,
                 color: egui::Color32::from_rgb(0, 179, 134),
             },
-            selection_rounding: 1.5,
+            selection_rounding: 2.0,
         }
     }
 }

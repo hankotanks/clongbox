@@ -93,8 +93,8 @@ pub fn phoneme_selection_list<'a, P>(
                 ui, focus, 
                 phoneme, 
                 phoneme_editor_state, 
-                phoneme_src
-                &mut selection, 
+                phoneme_src,
+                &mut selection,
             );
         }
     });
@@ -153,9 +153,23 @@ pub fn group_selection_list(
     group_editor_state: &mut EditorState<GroupKey>,
     mut selection: Selection<'_, GroupKey>,
 ) {
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        for group in groups {
-            group_editor(ui, focus, group, group_editor_state, &mut selection);
-        }
-    });
+    let group_selection_list_size = egui::Vec2 { 
+        x: ui.spacing().text_edit_width * 0.6,
+        y: ui.available_height(),
+    };
+
+    egui_extras::TableBuilder::new(ui)
+        .column(egui_extras::Column::exact(group_selection_list_size.x))
+        .header(group_selection_list_size.y, |mut row| { row.col(|ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.vertical(|ui| {
+                    ui.spacing_mut().button_padding.y = ui.spacing().item_spacing.y;
+                    ui.spacing_mut().item_spacing.y *= 2.;
+                    
+                    for group in groups {
+                        group_editor(ui, focus, group, group_editor_state, &mut selection);
+                    }
+                });
+            });
+        }); });
 }

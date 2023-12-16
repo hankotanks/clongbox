@@ -34,7 +34,7 @@ impl GroupName {
         }
     }
 
-    pub fn parse<'a, I>(content: I) -> Result<Self, io::Error>
+    pub fn parse<'a, I>(_content: I) -> Result<Self, io::Error>
         where I: Into<borrow::Cow<'a, str>> {
 
         Err(io::Error::from(io::ErrorKind::InvalidData))
