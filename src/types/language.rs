@@ -95,6 +95,8 @@ pub struct Language {
 
     // NOTE: This is only valid in the parsing stage of the import process
     pub phoneme_table: Vec<Phoneme>,
+
+    _rm: Option<GroupKey>,
 }
 
 impl<'a> From<LanguageRaw<'a>> for Language {
@@ -142,6 +144,7 @@ impl<'a> From<LanguageRaw<'a>> for Language {
             phonemes,
             phoneme_table,
             groups,
+            ..Default::default()
         }
     }
 }
@@ -486,6 +489,14 @@ impl Language {
         }
     }
 
+    pub fn group_ref(&self, key: GroupKey) -> GroupRef<'_> {
+        GroupRef { 
+            key, 
+            name: &self.groups[key].name, 
+            phonemes: self.phonemes(key),
+        }
+    }
+
     pub fn groups_mut(&mut self) -> GroupsMut<'_, vec::IntoIter<GroupKey>> {
         let keys = self.groups.keys().collect::<Vec<_>>().into_iter();
 
@@ -493,6 +504,24 @@ impl Language {
             keys, 
             language: self, 
             rm: None,
+        }
+    }
+
+    pub fn group_ref_mut(&mut self, key: GroupKey) -> GroupRefMut<'_> {
+        let Self { phonemes, groups, _rm, .. } = self;
+
+        let keys = groups[key].keys.iter().copied().collect();
+
+        GroupRefMut {
+            key,
+            name: &mut groups[key].name,
+            phonemes: PhonemesMut {
+                idx: 0,
+                keys,
+                rm: false,
+                source: Err(phonemes),
+            },
+            rm: _rm
         }
     }
 }

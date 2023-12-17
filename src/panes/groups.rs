@@ -21,22 +21,48 @@ impl GroupPane {
     }
 
     fn phoneme_panel(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
-        layout::hungry_frame(ui, |ui| {
+        let layout = egui::Layout::top_down(egui::Align::LEFT);
+
+        layout::hungry_frame_with_layout(ui, layout, |ui| {
             match self.group_active {
                 Some(key) => {
-                    widgets::phoneme_selection_list(
+                    widgets::group_editor_heading(
                         ui, 
                         &mut state.focus, 
-                        state.language.phonemes_mut(key),
-                        &mut self.phoneme_editor_state, 
-                        PhonemeSrc::Language, 
-                        Selection::None,
+                        state.language.group_ref_mut(key), 
+                        &mut self.group_editor_state, 
+                        &mut Selection::None
                     );
                 },
                 None => {
-                    ui.label("No group selected...");
+                    let content = ui.text_style_height(&egui::TextStyle::Heading);
+                    let content = egui::RichText::new("All Phonemes")
+                        .font(egui::FontId::proportional(content));
+
+                    let header = egui::Button::new(content)
+                        .fill(egui::Color32::TRANSPARENT)
+                        .stroke(egui::Stroke::default())
+                        .selected(false);
+
+                    ui.add_enabled(false, header);
                 },
             }
+
+            ui.separator();
+
+            let phonemes = match self.group_active {
+                Some(key) => state.language.phonemes_mut(key),
+                None => state.language.phonemes_mut_all(),
+            };
+
+            widgets::phoneme_selection_list(
+                ui, 
+                &mut state.focus, 
+                phonemes,
+                &mut self.phoneme_editor_state, 
+                PhonemeSrc::Language, 
+                Selection::None,
+            );
         });
     }
 }

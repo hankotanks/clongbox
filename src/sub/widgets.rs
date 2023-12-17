@@ -100,16 +100,20 @@ pub fn phoneme_selection_list<'a, P>(
     });
 }
 
-pub fn group_editor(
+fn group_editor_inner(
     ui: &mut egui::Ui,
     focus: &mut Focus,
+    font: egui::FontId,
     mut group: GroupRefMut<'_>,
     state: &mut EditorState<GroupKey>,
     selection: &mut Selection<'_, GroupKey>,
 ) {
     match state {
         EditorState::Active { key, content } if *key == group.key => {
-            if ui.text_edit_singleline(content).lost_focus() {
+            let group_editor = egui::TextEdit::singleline(content)
+                .font(font.clone());
+
+            if ui.add(group_editor).lost_focus() {
                 if content.trim().is_empty() {
                     group.delete();
                 } else {
@@ -127,9 +131,12 @@ pub fn group_editor(
             let GroupRefMut { key, name, .. } = group;
 
             focus.show_if_valid(FocusBuffer::Group(key), ui, |ui| {
+                let content = egui::RichText::from(format!("{}", name))
+                    .font(font.clone());
+
                 ui.toggle_value(
                     &mut selection.is_selected(key), 
-                    format!("{}", name)
+                    content,
                 )
             }).map(|response| {
                 if response.clicked() {
@@ -143,6 +150,32 @@ pub fn group_editor(
             });
         },
     }
+}
+
+pub fn group_editor(
+    ui: &mut egui::Ui,
+    focus: &mut Focus,
+    group: GroupRefMut<'_>,
+    state: &mut EditorState<GroupKey>,
+    selection: &mut Selection<'_, GroupKey>,
+) {
+    let font = ui.text_style_height(&egui::TextStyle::Button);
+    let font = egui::FontId::proportional(font);
+
+    group_editor_inner(ui, focus, font, group, state, selection);
+}
+
+pub fn group_editor_heading(
+    ui: &mut egui::Ui,
+    focus: &mut Focus,
+    group: GroupRefMut<'_>,
+    state: &mut EditorState<GroupKey>,
+    selection: &mut Selection<'_, GroupKey>,
+) {
+    let font = ui.text_style_height(&egui::TextStyle::Heading);
+    let font = egui::FontId::proportional(font);
+
+    group_editor_inner(ui, focus, font, group, state, selection);
 }
 
 #[allow(dead_code, unused_variables, unused_mut)]
