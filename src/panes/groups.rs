@@ -6,11 +6,15 @@ use crate::{PhonemeSrc, PhonemeKey};
 pub struct GroupPane {
     group_active: Option<GroupKey>,
     group_editor_state: widgets::EditorState<GroupKey>,
+    group_editor_state_heading: widgets::EditorState<GroupKey>,
+    
     phoneme_editor_state: widgets::EditorState<PhonemeKey>,
 }
 
 impl GroupPane {
     fn group_panel(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
+        let group_active_prev = self.group_active;
+
         widgets::group_selection_list(
             ui, 
             &mut state.focus, 
@@ -18,6 +22,10 @@ impl GroupPane {
             &mut self.group_editor_state, 
             Selection::Single(&mut self.group_active),
         );
+
+        if self.group_active != group_active_prev {
+            self.group_editor_state_heading = widgets::EditorState::None;
+        }
     }
 
     fn phoneme_panel(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
@@ -30,7 +38,7 @@ impl GroupPane {
                         ui, 
                         &mut state.focus, 
                         state.language.group_ref_mut(key), 
-                        &mut self.group_editor_state, 
+                        &mut self.group_editor_state_heading, 
                         &mut Selection::None
                     );
                 },

@@ -7,7 +7,8 @@ use crate::{GroupKey, PhonemeKey, PhonemeSrc};
 #[derive(serde::Deserialize, serde::Serialize)]
 pub enum FocusTarget {
     Sc { field: sc::Field, head: bool, tail: bool, nested: bool },
-    NewPhonemeGroups,
+    PhonemeEditorGroups,
+    PhonemeEditorSelect,
     None,
 }
 
@@ -53,9 +54,12 @@ impl FocusTarget {
                     },
                 }
             },
-            FocusTarget::NewPhonemeGroups //
+            FocusTarget::PhonemeEditorGroups //
                 if matches!(buffer, FocusBuffer::Group(_)) => true,
-            FocusTarget::NewPhonemeGroups => false,
+            FocusTarget::PhonemeEditorGroups => false,
+            FocusTarget::PhonemeEditorSelect //
+                if matches!(buffer, FocusBuffer::Phoneme { .. }) => true,
+            FocusTarget::PhonemeEditorSelect => false,
             FocusTarget::None => false,
         }
     }
@@ -87,10 +91,26 @@ impl Default for Focus {
 }
 
 impl Focus {
+    pub fn needs(&self, disc: mem::Discriminant<FocusTarget>) -> bool {
+        match self {
+            Focus::Active { target, buffer, .. } //
+                if disc == mem::discriminant(target) => buffer.is_none(),
+            _ => false,
+        }
+    }
+
     pub fn set(&mut self, id: egui::Id, target: FocusTarget) {
         let focus = Self::Active { id, target, buffer: None };
 
         let _ = mem::replace(self, focus);
+    }
+
+    pub fn set_buffer(&mut self, id: egui::Id, buffer: FocusBuffer) {
+        if let Self::Active { id: id_curr, buffer: buffer_curr, .. } = self {
+            if id == *id_curr {
+                let _  = buffer_curr.insert(buffer);
+            }
+        }
     }
 
     pub fn clear(&mut self) {
@@ -103,6 +123,14 @@ impl Focus {
                 buffer.take(),
             _ => None,
         }
+    }
+
+    pub fn take_if_matches(&mut self, disc: mem::Discriminant<FocusTarget>) -> Option<FocusBuffer> {
+        if let Self::Active { target, buffer, .. } = self {
+            if disc == mem::discriminant(target) {
+                buffer.take()
+            } else { None }
+        } else { None }
     }
 
     /// This function requires a contract that the caller will not attach

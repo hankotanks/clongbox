@@ -272,7 +272,21 @@ pub struct PhonemeRefMut<'a> {
     pub key: PhonemeKey,
     pub phoneme: &'a mut Arc<str>,
     pub grapheme: &'a mut Option<Arc<str>>,
-    rm: &'a mut bool,
+    pub rm: &'a mut bool,
+}
+
+#[cfg(feature = "unused")]
+impl<'a> PhonemeRefMut<'a> {
+    pub fn new(key: PhonemeKey, phoneme: &'a mut Phoneme) -> Self {
+        let Phoneme { phoneme, grapheme } = phoneme;
+
+        PhonemeRefMut { 
+            key, 
+            phoneme, 
+            grapheme, 
+            rm: unsafe {static mut RM: bool = false; &mut RM }
+        }
+    }
 }
 
 impl<'a> fmt::Display for PhonemeRefMut<'a> {

@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::{Selection, Phoneme, PhonemeSrc, GroupKey, GroupName};
+use crate::{Selection, Phoneme, PhonemeSrc, GroupKey, GroupName, FocusTarget};
 use crate::{Focus, FocusBuffer};
 use crate::PhonemeKey;
 use crate::language::{PhonemeRefMut, GroupsMut, GroupRefMut};
@@ -19,7 +19,7 @@ impl<K: slotmap::Key> Default for EditorState<K> {
 }
 
 #[allow(dead_code)]
-fn phoneme_editor(
+pub fn phoneme_editor(
     ui: &mut egui::Ui,
     focus: &mut Focus,
     mut phoneme: PhonemeRefMut<'_>,
@@ -66,7 +66,10 @@ fn phoneme_editor(
                     content
                 )
             }).map(|response| {
-                if response.clicked() {
+                if matches!(selection, Selection::None) && response.clicked() {
+                    focus.set(response.id, FocusTarget::PhonemeEditorSelect);
+                    focus.set_buffer(response.id, FocusBuffer::Phoneme { key, src });
+                } else if response.clicked() {
                     selection.toggle(key);
                 } else if response.secondary_clicked() {
                     *state = EditorState::Active { 
