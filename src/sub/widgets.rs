@@ -66,11 +66,15 @@ pub fn phoneme_editor(
                     content
                 )
             }).map(|response| {
-                if matches!(selection, Selection::None) && response.clicked() {
-                    focus.set(response.id, FocusTarget::PhonemeEditorSelect);
-                    focus.set_buffer(response.id, FocusBuffer::Phoneme { key, src });
-                } else if response.clicked() {
-                    selection.toggle(key);
+                if response.clicked() {
+                    if let Selection::Flag(flag) = selection {
+                        let _ = mem::replace(*flag, true);
+
+                        focus.set(response.id, FocusTarget::PhonemeEditorSelect);
+                        focus.set_buffer(response.id, FocusBuffer::Phoneme { key, src });
+                    } else {
+                        selection.toggle(key);
+                    }
                 } else if response.secondary_clicked() {
                     *state = EditorState::Active { 
                         key, 

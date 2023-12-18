@@ -4,25 +4,38 @@ mod phonemes;
 
 use once_cell::unsync::OnceCell;
 
-use crate::State;
+use crate::{State, Control};
 
+#[repr(usize)]
+#[derive(Clone, Copy)]
+#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(enum_iterator::Sequence)]
+pub enum PaneId { Groups, Phonemes, Lexicon, }
+
+impl Into<Box<dyn Pane>> for PaneId {
+    fn into(self) -> Box<dyn Pane> {
+        match self {
+            PaneId::Groups => Box::from(groups::GroupPane::default()) //
+                as Box<dyn Pane + 'static>,
+            PaneId::Phonemes => Box::from(phonemes::PhonemePane::default()) //
+                as Box<dyn Pane + 'static>,
+            PaneId::Lexicon => Box::from(lexicon::LexiconPane::default()) //
+                as Box<dyn Pane + 'static>,
+        }
+    }
+}
 pub trait Pane: Send + Sync {
     fn name(&self) -> &'static str;
-    fn show(&mut self, state: &mut State, ui: &mut egui::Ui);
+    fn show(&mut self, control: Control<'_>, state: &mut State, ui: &mut egui::Ui);
 }
 
 pub fn panes<const P: usize>() -> [OnceCell<Box<dyn Pane + 'static>>; P] {
     let panes: [OnceCell<Box<dyn Pane + 'static>>; P] = //
         [(); P].map(|_| OnceCell::default());
 
-    let _ = panes[0].set(Box::new(groups::GroupPane::default()) //
-        as Box<dyn Pane + 'static>);
-
-    let _ = panes[1].set(Box::new(lexicon::LexiconPane::default()) //
-        as Box<dyn Pane + 'static>);
-
-    let _ = panes[2].set(Box::new(phonemes::PhonemePane::default()) //
-        as Box<dyn Pane + 'static>);
+    for id in enum_iterator::all::<PaneId>() {
+        let _ = panes[id as usize].set(id.into());
+    }
 
     panes
 }

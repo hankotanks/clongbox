@@ -79,7 +79,8 @@ pub enum Focus {
     Active { 
         id: egui::Id, 
         target: FocusTarget, 
-        buffer: Option<FocusBuffer> 
+        buffer: Option<FocusBuffer>,
+        fst: bool,
     },
     None,
 }
@@ -100,7 +101,7 @@ impl Focus {
     }
 
     pub fn set(&mut self, id: egui::Id, target: FocusTarget) {
-        let focus = Self::Active { id, target, buffer: None };
+        let focus = Self::Active { id, target, buffer: None, fst: true };
 
         let _ = mem::replace(self, focus);
     }
@@ -146,13 +147,15 @@ impl Focus {
         let response = (widget)(ui);
 
         match self {
-            Focus::Active { target, buffer, .. } => {
+            Focus::Active { target, buffer, fst, .. } => {
                 if target.is_valid(&buffer_temp) {
-                    ui.painter().rect_stroke(
-                        response.rect, 
-                        CONFIG.selection_rounding, 
-                        CONFIG.selection_stroke
-                    );
+                    if !*fst {
+                        ui.painter().rect_stroke(
+                            response.rect, 
+                            CONFIG.selection_rounding, 
+                            CONFIG.selection_stroke
+                        );
+                    }
         
                     if response.interact(egui::Sense::click()).clicked() {
                         let _ = buffer.insert(buffer_temp);

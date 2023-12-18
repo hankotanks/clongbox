@@ -1,4 +1,4 @@
-use crate::{widgets, layout};
+use crate::{widgets, layout, ToolId};
 use crate::{GroupKey, Selection};
 use crate::{PhonemeSrc, PhonemeKey};
 
@@ -7,7 +7,7 @@ pub struct GroupPane {
     group_active: Option<GroupKey>,
     group_editor_state: widgets::EditorState<GroupKey>,
     group_editor_state_heading: widgets::EditorState<GroupKey>,
-    
+
     phoneme_editor_state: widgets::EditorState<PhonemeKey>,
 }
 
@@ -28,7 +28,12 @@ impl GroupPane {
         }
     }
 
-    fn phoneme_panel(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
+    fn phoneme_panel(
+        &mut self, 
+        mut control: crate::Control<'_>, 
+        state: &mut crate::State, 
+        ui: &mut egui::Ui
+    ) {
         let layout = egui::Layout::top_down(egui::Align::LEFT);
 
         layout::hungry_frame_with_layout(ui, layout, |ui| {
@@ -63,14 +68,20 @@ impl GroupPane {
                 None => state.language.phonemes_mut_all(),
             };
 
+            let mut flag = false;
+
             widgets::phoneme_selection_list(
                 ui, 
                 &mut state.focus, 
                 phonemes,
                 &mut self.phoneme_editor_state, 
                 PhonemeSrc::Language, 
-                Selection::None,
+                Selection::Flag(&mut flag),
             );
+
+            if flag {
+                control.set_tool(ToolId::PhonemeEditor);
+            }
         });
     }
 }
@@ -78,7 +89,12 @@ impl GroupPane {
 impl super::Pane for GroupPane {
     fn name(&self) -> &'static str { "Groups" }
 
-    fn show(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
+    fn show(
+        &mut self, 
+        control: crate::Control<'_>, 
+        state: &mut crate::State, 
+        ui: &mut egui::Ui
+    ) {
         let temp = egui::Layout::left_to_right(egui::Align::TOP);
 
         layout::hungry_frame_with_layout(ui, temp, |ui| {
@@ -86,6 +102,7 @@ impl super::Pane for GroupPane {
                 .outer_margin(egui::Margin::same(0.))
                 .inner_margin(egui::Margin::symmetric(0., ui.spacing().window_margin.top))
                 .show(ui, |ui| { 
+                    // TODO: This id_source shouldn't just be random hex
                     ui.push_id(0xA0B643, |ui| {
                         self.group_panel(state, ui);
                     }); 
@@ -95,8 +112,8 @@ impl super::Pane for GroupPane {
                 .stroke(ui.visuals().window_stroke)
                 .inner_margin(ui.spacing().window_margin)
                 .outer_margin(ui.spacing().window_margin)
-                .show(ui, |ui| {
-                    self.phoneme_panel(state, ui);
+                .show(ui, |ui: &mut egui::Ui| {
+                    self.phoneme_panel(control, state, ui);
                 });
         });
     }

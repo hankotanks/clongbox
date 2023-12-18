@@ -1,4 +1,4 @@
-use crate::{widgets, layout};
+use crate::{widgets, layout, ToolId};
 use crate::{PhonemeKey, PhonemeSrc};
 use crate::Selection;
 
@@ -10,16 +10,26 @@ pub struct PhonemePane {
 impl super::Pane for PhonemePane {
     fn name(&self) -> &'static str { "Phonemes" }
 
-    fn show(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
+    fn show(
+        &mut self, 
+        mut control: crate::Control<'_>, 
+        state: &mut crate::State, 
+        ui: &mut egui::Ui
+    ) {
         layout::hungry_frame(ui, |ui| {
+            let mut flag = false;
             widgets::phoneme_selection_list(
                 ui, 
                 &mut state.focus, 
                 state.language.phonemes_mut_all(), 
                 &mut self.phoneme_editor_state, 
                 PhonemeSrc::Language, 
-                Selection::None,
+                Selection::Flag(&mut flag),
             );
+
+            if flag {
+                control.set_tool(ToolId::PhonemeEditor);
+            }
         });
     }
 }

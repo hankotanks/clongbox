@@ -16,7 +16,12 @@ fn main() -> eframe::Result<()> {
         "ClongBox",
         native_options,
         // NOTE: The const generics here MUST be updated if a new Pane/Tool is added
-        Box::new(|cc| Box::new(clongbox::App::<3, 4>::new(cc))),
+        Box::new(|cc| Box::new({
+            const NUM_PANES: usize = enum_iterator::cardinality::<clongbox::PaneId>();
+            const NUM_TOOLS: usize = enum_iterator::cardinality::<clongbox::ToolId>();
+            
+            clongbox::App::<NUM_PANES, NUM_TOOLS>::new(cc)
+        })),
     )
 }
 
@@ -31,7 +36,12 @@ fn main() {
                 "eframe_canvas",
                 eframe::WebOptions::default(),
                 // NOTE: The const generics here MUST be updated if a new Pane/Tool is added
-                Box::new(|cc| Box::new(clongbox::App::<3, 4>::new(cc))),
+                Box::new(|cc| Box::new({
+                    const NUM_PANES: usize = enum_iterator::cardinality::<clongbox::PaneId>();
+                    const NUM_TOOLS: usize = enum_iterator::cardinality::<clongbox::ToolId>();
+                    
+                    clongbox::App::<NUM_PANES, NUM_TOOLS>::new(cc)
+                })),
             ).await.expect("Failed to start eframe");
     });
 }

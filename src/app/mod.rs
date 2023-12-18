@@ -2,12 +2,13 @@ use std::{borrow, io};
 
 use once_cell::unsync::OnceCell;
 
-use crate::{State, Pane, Tool, CONFIG};
+use crate::{State, Pane, Tool, CONFIG, Control};
 use crate::{panes, tools};
 
 pub mod fonts;
 pub mod status;
 pub mod config;
+pub mod control;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub enum App<const P: usize, const T: usize> where 
@@ -325,9 +326,17 @@ impl<const P: usize, const T: usize> App<P, T> where
                     .inner_margin(ui.spacing().window_margin)
                     .show(ui, |ui| {
 
-                    pane.show(state, ui);
+                    let control = Control {
+                        tool_active,
+                    };
+
+                    pane.show(control, state, ui);
                 });
             }
         });
+
+        if let crate::Focus::Active { fst, .. } = &mut state.focus {
+            *fst = false;
+        }
     }
 }
