@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::{Selection, Phoneme, PhonemeSrc, GroupKey, GroupName, FocusTarget};
+use crate::{Selection, Phoneme, PhonemeSrc, GroupKey, GroupName, FocusTarget, status};
 use crate::{Focus, FocusBuffer};
 use crate::PhonemeKey;
 use crate::language::{PhonemeRefMut, GroupsMut, GroupRefMut};
@@ -81,6 +81,15 @@ pub fn phoneme_editor(
                         content: format!("{}", phoneme),
                     };
                 }
+
+                let status_message = format!("{}Right-click to edit in place", match selection {
+                    Selection::Single(_) | Selection::Multiple(_) => //
+                        "Click to select this phoneme. ",
+                    Selection::Flag(_) => "Click to view this phoneme in the editor. ",
+                    Selection::None => "",
+                });
+
+                status::set_on_hover(&response, status_message);
             });
         },
     }
@@ -154,6 +163,16 @@ fn group_editor_inner(
                         content: format!("{}", name),
                     };
                 }
+
+                let status_message = format!("{}Right-click to edit group name", match selection {
+                    Selection::Single(_) | Selection::Multiple(_) => //
+                        "Click to select. ",
+                    Selection::Flag(_) => //
+                        "Click to view this group in the editor. ", // TODO: There is no group editor pane as of yet
+                    Selection::None => "",
+                });
+
+                status::set_on_hover(&response, status_message);
             });
         },
     }

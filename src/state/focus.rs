@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::{sc, CONFIG};
+use crate::{sc, CONFIG, status};
 use crate::{GroupKey, PhonemeKey, PhonemeSrc};
 
 #[derive(Clone, Copy)]
@@ -9,13 +9,6 @@ pub enum FocusTarget {
     Sc { field: sc::Field, head: bool, tail: bool, nested: bool },
     PhonemeEditorGroups,
     PhonemeEditorSelect,
-    None,
-}
-
-impl Default for FocusTarget {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl FocusTarget {
@@ -60,7 +53,6 @@ impl FocusTarget {
             FocusTarget::PhonemeEditorSelect //
                 if matches!(buffer, FocusBuffer::Phoneme { .. }) => true,
             FocusTarget::PhonemeEditorSelect => false,
-            FocusTarget::None => false,
         }
     }
 }
@@ -155,6 +147,30 @@ impl Focus {
                             CONFIG.selection_rounding, 
                             CONFIG.selection_stroke
                         );
+
+                        let status_message = format!("Click to {}", 
+                            match (target, buffer_temp) {
+                                (FocusTarget::Sc { .. }, FocusBuffer::Phoneme { .. }) => //
+                                    "add this phoneme to the selected sound change",
+                                (FocusTarget::Sc { .. }, FocusBuffer::Group(_)) => //
+                                    "add this group to the currently sound change",
+                                (FocusTarget::Sc { .. }, FocusBuffer::Any) => //
+                                    "add a pair of brackets [ ] to the currently sound change",
+                                (FocusTarget::Sc { .. }, FocusBuffer::Boundary) => //
+                                    "add a word boundary # to the currently sound change",
+                                (FocusTarget::PhonemeEditorGroups, FocusBuffer::Phoneme { .. }) => unreachable!(),
+                                (FocusTarget::PhonemeEditorGroups, FocusBuffer::Group(_)) => //
+                                    "insert the selected phoneme into this group",
+                                (FocusTarget::PhonemeEditorGroups, FocusBuffer::Any) => unreachable!(),
+                                (FocusTarget::PhonemeEditorGroups, FocusBuffer::Boundary) => unreachable!(),
+                                (FocusTarget::PhonemeEditorSelect, FocusBuffer::Phoneme { .. }) => //
+                                    "edit this phoneme",
+                                (FocusTarget::PhonemeEditorSelect, FocusBuffer::Group(_)) => unreachable!(),
+                                (FocusTarget::PhonemeEditorSelect, FocusBuffer::Any) => unreachable!(),
+                                (FocusTarget::PhonemeEditorSelect, FocusBuffer::Boundary) => unreachable!(),
+                        });
+
+                        status::set_on_hover(&response, status_message);
                     }
         
                     if response.interact(egui::Sense::click()).clicked() {
