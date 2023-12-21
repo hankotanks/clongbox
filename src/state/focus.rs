@@ -1,19 +1,22 @@
+use std::collections::BTreeSet;
 use std::mem;
 
 use crate::{sc, CONFIG, status};
 use crate::{GroupKey, PhonemeKey, PhonemeSrc};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 #[derive(serde::Deserialize, serde::Serialize)]
 pub enum FocusTarget {
     Sc { field: sc::Field, head: bool, tail: bool, nested: bool },
-    PhonemeEditorGroups,
+    // NOTE: This Option will always be Some, 
+    // this allows us to construct a const Discriminant<FocusTarget>
+    PhonemeEditorGroups { selected: Option<BTreeSet<GroupKey>> },
     PhonemeEditorSelect,
 }
 
 impl FocusTarget {
     pub fn is_valid(&self, buffer: &FocusBuffer) -> bool {
-        match *self {
+        match self {
             FocusTarget::Sc { field, nested, head, tail } => {
                 match field {
                     sc::Field::Target => match *buffer {
@@ -34,7 +37,7 @@ impl FocusTarget {
                             if matches!(src, PhonemeSrc::Language) => true,
                         FocusBuffer::Group(_) => true,
                         FocusBuffer::Any if !nested => true,
-                        FocusBuffer::Boundary if head && !has_boundary => true,
+                        FocusBuffer::Boundary if *head && !has_boundary => true,
                         _ => false,
                     },
                     sc::Field::EnvEnd { has_boundary } => match *buffer {
@@ -42,14 +45,15 @@ impl FocusTarget {
                             if matches!(src, PhonemeSrc::Language) => true,
                         FocusBuffer::Group(_) => true,
                         FocusBuffer::Any if !nested => true,
-                        FocusBuffer::Boundary if tail && !has_boundary => true,
+                        FocusBuffer::Boundary if *tail && !has_boundary => true,
                         _ => false,
                     },
                 }
             },
-            FocusTarget::PhonemeEditorGroups //
-                if matches!(buffer, FocusBuffer::Group(_)) => true,
-            FocusTarget::PhonemeEditorGroups => false,
+            FocusTarget::PhonemeEditorGroups { selected } //
+                if let FocusBuffer::Group(key) = buffer => //
+                    !selected.as_ref().unwrap().contains(key),
+            FocusTarget::PhonemeEditorGroups { .. } => false,
             FocusTarget::PhonemeEditorSelect //
                 if matches!(buffer, FocusBuffer::Phoneme { .. }) => true,
             FocusTarget::PhonemeEditorSelect => false,
@@ -153,16 +157,16 @@ impl Focus {
                                 (FocusTarget::Sc { .. }, FocusBuffer::Phoneme { .. }) => //
                                     "add this phoneme to the selected sound change",
                                 (FocusTarget::Sc { .. }, FocusBuffer::Group(_)) => //
-                                    "add this group to the currently sound change",
+                                    "add this group to the selected sound change",
                                 (FocusTarget::Sc { .. }, FocusBuffer::Any) => //
-                                    "add a pair of brackets [ ] to the currently sound change",
+                                    "add a pair of brackets [ ] to the selected sound change",
                                 (FocusTarget::Sc { .. }, FocusBuffer::Boundary) => //
-                                    "add a word boundary # to the currently sound change",
-                                (FocusTarget::PhonemeEditorGroups, FocusBuffer::Phoneme { .. }) => unreachable!(),
-                                (FocusTarget::PhonemeEditorGroups, FocusBuffer::Group(_)) => //
+                                    "add a word boundary # to the selected sound change",
+                                (FocusTarget::PhonemeEditorGroups { .. }, FocusBuffer::Phoneme { .. }) => unreachable!(),
+                                (FocusTarget::PhonemeEditorGroups { .. }, FocusBuffer::Group(_)) => //
                                     "insert the selected phoneme into this group",
-                                (FocusTarget::PhonemeEditorGroups, FocusBuffer::Any) => unreachable!(),
-                                (FocusTarget::PhonemeEditorGroups, FocusBuffer::Boundary) => unreachable!(),
+                                (FocusTarget::PhonemeEditorGroups { .. }, FocusBuffer::Any) => unreachable!(),
+                                (FocusTarget::PhonemeEditorGroups { .. }, FocusBuffer::Boundary) => unreachable!(),
                                 (FocusTarget::PhonemeEditorSelect, FocusBuffer::Phoneme { .. }) => //
                                     "edit this phoneme",
                                 (FocusTarget::PhonemeEditorSelect, FocusBuffer::Group(_)) => unreachable!(),

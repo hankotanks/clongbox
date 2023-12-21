@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, mem};
 pub enum Selection<'a, K: slotmap::Key> {
     Single(&'a mut Option<K>),
     Multiple(&'a mut BTreeSet<K>),
-    Flag(&'a mut bool),
+    Flag { flag: &'a mut bool, message: &'static str, },
     None
 }
 
@@ -16,7 +16,7 @@ impl<'a, K: slotmap::Key> Selection<'a, K> {
             Selection::Multiple(key_set) => {
                 key_set.insert(key);
             },
-            Selection::None | Selection::Flag(_) => { /*  */ },
+            Selection::None | Selection::Flag { .. } => { /*  */ },
         }
     }
 
@@ -40,12 +40,12 @@ impl<'a, K: slotmap::Key> Selection<'a, K> {
                 if let Some(selected_key) = key_slot => *selected_key == key,
             Selection::Single(_) => false,
             Selection::Multiple(key_set) => key_set.contains(&key),
-            Selection::None | Selection::Flag(_) => false,
+            Selection::None | Selection::Flag { .. } => false,
         }
     }
 
     pub fn toggle(&mut self, key: K) {
-        if let Self::Flag(flag) = self {
+        if let Self::Flag { flag, .. } = self {
             let _ = mem::replace(*flag, !(**flag));
 
             return;

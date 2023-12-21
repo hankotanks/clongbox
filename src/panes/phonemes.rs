@@ -24,7 +24,10 @@ impl super::Pane for PhonemePane {
                 state.language.phonemes_mut_all(), 
                 &mut self.phoneme_editor_state, 
                 PhonemeSrc::Language, 
-                Selection::Flag(&mut flag),
+                Selection::Flag {
+                    flag: &mut flag,
+                    message: "view this phoneme in the editor"
+                },
             );
 
             if flag {

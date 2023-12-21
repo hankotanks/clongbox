@@ -38,16 +38,16 @@ impl GroupPane {
 
         layout::hungry_frame_with_layout(ui, layout, |ui| {
             match self.group_active {
-                Some(key) => {
+                Some(key) if let Some(group) = state.language.group_ref_mut(key) => {
                     widgets::group_editor_heading(
                         ui, 
                         &mut state.focus, 
-                        state.language.group_ref_mut(key), 
+                        group, 
                         &mut self.group_editor_state_heading, 
                         &mut Selection::None
                     );
                 },
-                None => {
+                _ => {
                     let content = ui.text_style_height(&egui::TextStyle::Heading);
                     let content = egui::RichText::new("All Phonemes")
                         .font(egui::FontId::proportional(content));
@@ -64,8 +64,8 @@ impl GroupPane {
             ui.separator();
 
             let phonemes = match self.group_active {
-                Some(key) => state.language.phonemes_mut(key),
-                None => state.language.phonemes_mut_all(),
+                Some(key) if let Some(phonemes) = state.language.phonemes_mut(key) => phonemes,
+                _ => state.language.phonemes_mut_all(),
             };
 
             let mut flag = false;
@@ -76,7 +76,10 @@ impl GroupPane {
                 phonemes,
                 &mut self.phoneme_editor_state, 
                 PhonemeSrc::Language, 
-                Selection::Flag(&mut flag),
+                Selection::Flag {
+                    flag: &mut flag,
+                    message: "view this phoneme in the editor",
+                },
             );
 
             if flag {

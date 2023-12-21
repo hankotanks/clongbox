@@ -67,7 +67,7 @@ pub fn phoneme_editor(
                 )
             }).map(|response| {
                 if response.clicked() {
-                    if let Selection::Flag(flag) = selection {
+                    if let Selection::Flag { flag, .. } = selection {
                         let _ = mem::replace(*flag, true);
 
                         focus.set(response.id, FocusTarget::PhonemeEditorSelect);
@@ -85,7 +85,13 @@ pub fn phoneme_editor(
                 let status_message = format!("{}Right-click to edit in place", match selection {
                     Selection::Single(_) | Selection::Multiple(_) => //
                         "Click to select this phoneme. ",
-                    Selection::Flag(_) => "Click to view this phoneme in the editor. ",
+                    Selection::Flag { message, .. } => {
+                        if message.is_empty() {
+                            ""
+                        } else {
+                            Box::leak(format!("Click to {message}. ").into_boxed_str())
+                        }
+                    },
                     Selection::None => "",
                 });
 
@@ -167,8 +173,13 @@ fn group_editor_inner(
                 let status_message = format!("{}Right-click to edit group name", match selection {
                     Selection::Single(_) | Selection::Multiple(_) => //
                         "Click to select. ",
-                    Selection::Flag(_) => //
-                        "Click to view this group in the editor. ", // TODO: There is no group editor pane as of yet
+                    Selection::Flag { message, .. } => {
+                        if message.is_empty() {
+                            ""
+                        } else {
+                            Box::leak(format!("Click to {message}. ").into_boxed_str())
+                        }
+                    },
                     Selection::None => "",
                 });
 
