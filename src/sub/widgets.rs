@@ -76,13 +76,13 @@ pub fn phoneme_editor(
                         selection.toggle(key);
                     }
                 } else if response.secondary_clicked() {
-                    *state = EditorState::Active { 
+                    *state = EditorState::Active {
                         key, 
                         content: format!("{}", phoneme),
                     };
                 }
 
-                let status_message = format!("{}Right-click to edit in place", match selection {
+                let status_message = format!("{}Right-click to edit in place. Clearing the name deletes the phoneme", match selection {
                     Selection::Single(_) | Selection::Multiple(_) => //
                         "Click to select this phoneme. ",
                     Selection::Flag { message, .. } => {
@@ -170,7 +170,7 @@ fn group_editor_inner(
                     };
                 }
 
-                let status_message = format!("{}Right-click to edit group name", match selection {
+                let status_message = format!("{}Right-click to edit group name. Clearing the name deletes the group", match selection {
                     Selection::Single(_) | Selection::Multiple(_) => //
                         "Click to select. ",
                     Selection::Flag { message, .. } => {

@@ -43,6 +43,24 @@ const DISC_SELECT: mem::Discriminant<FocusTarget> = //
 const DISC_GROUPS: mem::Discriminant<FocusTarget> = //
     mem::discriminant(&FocusTarget::PhonemeEditorGroups { selected: None });
 
+fn parse_new_phoneme(
+    content: &str, 
+    language: &mut Language, 
+    failed: &mut bool,
+    complete: &mut OnceCell<PhonemeKey>, 
+) {
+    match Phoneme::parse(content) {
+        Ok(phoneme) => {
+            let phoneme_key = language.phoneme_add(phoneme);
+            
+            let _ = complete.set(phoneme_key);                                
+        },
+        Err(_) => {
+            *failed = true;
+        },
+    }
+}
+
 impl NewPhonemeTool {
     fn selection_row(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
         match self {
@@ -71,9 +89,14 @@ impl NewPhonemeTool {
                         );
                     });
 
-                if ui.button("Clear Selection").clicked() {
-                    *clear = true;
-                }
+                layout::button_context_line(ui,[
+                    layout::BtnContextElem::Button("Clear"),
+                    layout::BtnContextElem::Label("the current selection")
+                ]).map(|response| {
+                    if response.clicked() {
+                        *clear = true;
+                    }
+                });
             },
             NewPhonemeTool::New { content, complete, failed, .. } => {
                 let phoneme_editor_width = fonts::ipa_text_width(content.as_str());
@@ -85,34 +108,38 @@ impl NewPhonemeTool {
                     .hint_text("_ [ _ ]")
                     .desired_width(phoneme_editor_width);
 
-                if ui.add(phoneme_editor).lost_focus() {
-                    match Phoneme::parse(content.as_str()) {
-                        Ok(phoneme) => {
-                            let phoneme_key = state.language.phoneme_add(phoneme);
-                            
-                            let _ = complete.set(phoneme_key);                                
-                        },
-                        Err(_) => {
-                            *failed = true;
-                        },
-                    }
+                let phoneme_editor_response = ui.add(phoneme_editor);
+
+                if phoneme_editor_response.lost_focus() {
+                    let language = &mut state.language;
+
+                    parse_new_phoneme(content, language, failed, complete);
                 }
 
                 if content.trim().is_empty() {
-                    ui.label("Add a new phoneme, or...");
+                    layout::button_context_line(ui, [
+                        layout::BtnContextElem::Label("Add a new phoneme, or..."),
+                        layout::BtnContextElem::Toggle("Select", state.focus.needs(DISC_SELECT)),
+                    ]).map(|response| {
+                        if response.clicked() {
+                            if state.focus.needs(DISC_SELECT) {
+                                state.focus.clear();
+                            } else {
+                                state.focus.set(ui.id(), FocusTarget::PhonemeEditorSelect);
+                            }
+                        }
+                    });
                 } else if Phoneme::parse(content.as_str()).is_err() {
-                    ui.label("Invalid phoneme...");
-                    ui.separator();
-                }
-
-                let mut selected = state.focus.needs(DISC_SELECT);
-
-                if ui.toggle_value(&mut selected, "Select").clicked() {
-                    if selected {
-                        state.focus.set(ui.id(), FocusTarget::PhonemeEditorSelect);
-                    } else {
-                        state.focus.clear();
-                    }
+                    ui.label("Invalid phoneme, try following the hint text");
+                } else {
+                    layout::button_context_line(ui, [
+                        layout::BtnContextElem::Button("Confirm"),
+                        layout::BtnContextElem::Label("addition of phoneme")
+                    ]).map(|response| {
+                        if response.clicked() {
+                            phoneme_editor_response.surrender_focus();
+                        }
+                    });
                 }
             },
             _ => {
@@ -122,12 +149,12 @@ impl NewPhonemeTool {
     }
 
     fn group_panel_inner(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
-        let Self::Editing { 
+        let Self::Editing {
             phoneme_key,
-            groups, 
-            group_editor_state, .. 
-        } = self else { 
-            panic!(); 
+            groups,
+            group_editor_state, ..
+        } = self else {
+            panic!();
         };
 
         for key in groups.clone().into_iter() {
@@ -144,10 +171,18 @@ impl NewPhonemeTool {
                         message: "remove selected phoneme from this group"
                     },
                 );
-    
+
                 if should_remove {
                     groups.remove(&key);
-    
+
+                    if state.focus.needs(DISC_GROUPS) {
+                        let focus = FocusTarget::PhonemeEditorGroups { 
+                            selected: Some(groups.clone()) 
+                        };
+        
+                        state.focus.set(ui.id(), focus);
+                    }
+
                     state.language[key].keys.remove(&phoneme_key);
                 }
             }
@@ -177,7 +212,20 @@ impl NewPhonemeTool {
                         }
                     }
 
-                    self.group_panel_inner(state, ui);
+                    let group_panel_left_padding = ui.spacing().window_margin.left;
+
+                    egui_extras::StripBuilder::new(ui)
+                        .size(egui_extras::Size::exact(group_panel_left_padding))
+                        .size(egui_extras::Size::remainder())
+                        .horizontal(|mut strip| {
+                            strip.empty();
+
+                            strip.cell(|ui| {
+                                ui.horizontal_wrapped(|ui| {
+                                    self.group_panel_inner(state, ui);
+                                });
+                            });
+                        });
                 },
                 NewPhonemeTool::New { .. } => {
                     ui.add_enabled_ui(false, |ui| {
@@ -281,6 +329,8 @@ impl super::Tool for NewPhonemeTool {
             self.selection_row(state, ui);
         });
 
+        ui.separator();
+        
         self.group_panel(state, ui);
     }
 }
