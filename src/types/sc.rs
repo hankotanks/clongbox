@@ -363,6 +363,7 @@ impl Field {
     }
 }
 
+#[derive(Default)]
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct SoundChange([Vec<Element>; 4]);
 

@@ -31,6 +31,7 @@ pub enum BtnContextElem<'a> {
     Label(&'a str),
     Button(&'a str),
     Toggle(&'a str, bool),
+    Enabled(&'a str, bool),
 }
 
 pub fn button_context_line<'a, I>(ui: &mut egui::Ui, elems: I) -> Option<egui::Response>
@@ -66,6 +67,21 @@ pub fn button_context_line<'a, I>(ui: &mut egui::Ui, elems: I) -> Option<egui::R
                         .underline();
 
                     let temp = ui.toggle_value(&mut toggle, content);
+
+                    if response.is_none() {
+                        let _ = response.insert(temp);
+                    } else if let Some(response) = response.as_mut() {
+                        response.union(temp);
+                    }
+                },
+                BtnContextElem::Enabled(content, enabled) => {
+                    let content = egui::RichText::new(content)
+                        .underline();
+
+                    let content = egui::Button::new(content)
+                        .fill(egui::Color32::TRANSPARENT);
+
+                    let temp = ui.add_enabled(enabled, content);
 
                     if response.is_none() {
                         let _ = response.insert(temp);
