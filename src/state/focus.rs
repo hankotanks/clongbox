@@ -12,6 +12,7 @@ pub enum FocusTarget {
     // this allows us to construct a const Discriminant<FocusTarget>
     PhonemeEditorGroups { selected: Option<BTreeSet<GroupKey>> },
     PhonemeEditorSelect,
+    GroupEditorSelect,
 }
 
 impl FocusTarget {
@@ -57,6 +58,9 @@ impl FocusTarget {
             FocusTarget::PhonemeEditorSelect //
                 if matches!(buffer, FocusBuffer::Phoneme { .. }) => true,
             FocusTarget::PhonemeEditorSelect => false,
+            FocusTarget::GroupEditorSelect //
+                if matches!(buffer, FocusBuffer::Group(_)) => true,
+            FocusTarget::GroupEditorSelect => false,
         }
     }
 }
@@ -172,6 +176,11 @@ impl Focus {
                                 (FocusTarget::PhonemeEditorSelect, FocusBuffer::Group(_)) => unreachable!(),
                                 (FocusTarget::PhonemeEditorSelect, FocusBuffer::Any) => unreachable!(),
                                 (FocusTarget::PhonemeEditorSelect, FocusBuffer::Boundary) => unreachable!(),
+                                (FocusTarget::GroupEditorSelect, FocusBuffer::Phoneme { .. }) => //
+                                    "edit this group",
+                                (FocusTarget::GroupEditorSelect, FocusBuffer::Group(_)) => unreachable!(),
+                                (FocusTarget::GroupEditorSelect, FocusBuffer::Any) => unreachable!(),
+                                (FocusTarget::GroupEditorSelect, FocusBuffer::Boundary) => unreachable!(),
                         });
 
                         status::set_on_hover(&response, status_message);

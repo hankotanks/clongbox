@@ -2,7 +2,7 @@ use std::{borrow, io};
 
 use once_cell::unsync::OnceCell;
 
-use crate::{State, Pane, Tool, CONFIG, Control};
+use crate::{State, Pane, Tool, CONFIG, Control, editors};
 use crate::{panes, tools};
 
 pub mod fonts;
@@ -29,7 +29,7 @@ pub enum App<const P: usize, const T: usize> where
     },
 
     Ready { 
-        state: State, 
+        state: State,
 
         #[serde(skip)]
         panes: [OnceCell<Box<dyn Pane>>; P],
@@ -42,6 +42,15 @@ pub enum App<const P: usize, const T: usize> where
 
         #[serde(skip)]
         tool_active: usize,
+
+        #[serde(skip)]
+        editors: enum_map::EnumMap<editors::EditorKey, OnceCell<Box<dyn editors::Editor>>>,
+
+        #[serde(skip)]
+        editors_active: Option<editors::EditorKey>,
+
+        #[serde(skip)]
+        events_queue: Vec<egui::Event>,
     }
 }
 
@@ -84,6 +93,9 @@ impl<const P: usize, const T: usize> App<P, T> where
             pane_active: 0,
             tools: tools::<T>(),
             tool_active: 0,
+            editors: editors::editors(),
+            editors_active: None,
+            events_queue: Vec::with_capacity(1),
         };
 
         *self = loaded_app;
@@ -269,10 +281,25 @@ impl<const P: usize, const T: usize> App<P, T> where
             pane_active,
             tools,
             tool_active,
+            editors,
+            editors_active,
+            events_queue,
             ..
         } = self else {
             panic!();
         };
+
+        ctx.input_mut(|input| {
+            for event in events_queue.drain(0..) {
+                input.events.push(event);
+            }
+        });
+
+        for (_, editor) in editors.iter_mut() {
+            let editor = editor.get_mut().unwrap().as_mut();
+
+            editors::editor_update(editor, state);
+        }
 
         let egui::Margin { left, right, .. } = ctx.style().spacing.window_margin;
 
@@ -287,6 +314,7 @@ impl<const P: usize, const T: usize> App<P, T> where
             .width_range(egui::Rangef::new(min, max))
             .resizable(resizable)
             .show(ctx, |ui| {
+                
             ui.add_space(ui.spacing().item_spacing.y * 2.);
             
             egui::ComboBox::from_label("Select Tool")
@@ -303,6 +331,23 @@ impl<const P: usize, const T: usize> App<P, T> where
                 });
 
             ui.separator();
+
+            for (editor_key, editor) in editors.iter_mut() {
+                let header = format!("{editor_key} Editor");
+                let header = egui::CollapsingHeader::new(header);
+
+                let header = if matches!(editors_active, Some(key) if *key == editor_key) {
+                    header.open(Some(true))
+                } else {
+                    header
+                };
+                
+                header.show(ui, |ui| {
+                    editor.get_mut().unwrap().show(state, ui);
+                });
+
+                let _ = editors_active.take();
+            }
 
             if let Some(tool) = tools[*tool_active].get_mut() {
                 tool.show(state, ui);
@@ -328,6 +373,7 @@ impl<const P: usize, const T: usize> App<P, T> where
 
                     let control = Control {
                         tool_active,
+                        editors_active,
                     };
 
                     pane.show(control, state, ui);

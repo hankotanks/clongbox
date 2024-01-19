@@ -12,6 +12,7 @@ fn main() -> eframe::Result<()> {
             .with_min_inner_size(clongbox::CONFIG.window_min()),
         ..Default::default()
     };
+    
     eframe::run_native(
         "ClongBox",
         native_options,

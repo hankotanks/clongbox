@@ -10,7 +10,7 @@ use crate::language::Language;
 use crate::Selection;
 use crate::app::fonts;
 
-pub enum NewPhonemeTool {
+pub enum PhonemeEditor {
     Editing { 
         phoneme_key: PhonemeKey, 
         phoneme_editor_state: widgets::EditorState<PhonemeKey>, 
@@ -26,7 +26,7 @@ pub enum NewPhonemeTool {
     },
 }
 
-impl Default for NewPhonemeTool {
+impl Default for PhonemeEditor {
     fn default() -> Self {
         Self::New { 
             content: String::from(""),
@@ -61,10 +61,10 @@ fn parse_new_phoneme(
     }
 }
 
-impl NewPhonemeTool {
+impl PhonemeEditor {
     fn selection_row(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
         match self {
-            NewPhonemeTool::Editing { 
+            PhonemeEditor::Editing { 
                 phoneme_key, 
                 phoneme_editor_state,
                 clear, ..
@@ -98,7 +98,7 @@ impl NewPhonemeTool {
                     }
                 });
             },
-            NewPhonemeTool::New { content, complete, failed, .. } => {
+            PhonemeEditor::New { content, complete, failed, .. } => {
                 let phoneme_editor_width = fonts::ipa_text_width(content.as_str());
                 let phoneme_editor_width = phoneme_editor_width.max(fonts::ipa_text_width("_ [ _ ]")) + //;
                     ui.spacing().button_padding.x * 2.;
@@ -190,50 +190,37 @@ impl NewPhonemeTool {
     }
 
     fn group_panel(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
-        layout::hungry_frame(ui, |ui| {
-            match self {
-                NewPhonemeTool::Editing { groups, .. } => {
-                    let is_selected = state.focus.needs(DISC_GROUPS);
+        match self {
+            PhonemeEditor::Editing { groups, .. } => {
+                let is_selected = state.focus.needs(DISC_GROUPS);
 
-                    let response = ui.toggle_value(
-                        &mut state.focus.needs(DISC_GROUPS), 
-                        "Add Groups"
-                    );
+                let response = ui.toggle_value(
+                    &mut state.focus.needs(DISC_GROUPS), 
+                    "Add Groups"
+                );
 
-                    if response.clicked() {
-                        if is_selected {
-                            state.focus.clear();
-                        } else {
-                            let focus = FocusTarget::PhonemeEditorGroups { 
-                                selected: Some(groups.clone()),
-                            };
+                if response.clicked() {
+                    if is_selected {
+                        state.focus.clear();
+                    } else {
+                        let focus = FocusTarget::PhonemeEditorGroups { 
+                            selected: Some(groups.clone()),
+                        };
 
-                            state.focus.set(response.id, focus);
-                        }
+                        state.focus.set(response.id, focus);
                     }
+                }
 
-                    let group_panel_left_padding = ui.spacing().window_margin.left;
-
-                    egui_extras::StripBuilder::new(ui)
-                        .size(egui_extras::Size::exact(group_panel_left_padding))
-                        .size(egui_extras::Size::remainder())
-                        .horizontal(|mut strip| {
-                            strip.empty();
-
-                            strip.cell(|ui| {
-                                ui.horizontal_wrapped(|ui| {
-                                    self.group_panel_inner(state, ui);
-                                });
-                            });
-                        });
-                },
-                NewPhonemeTool::New { .. } => {
-                    ui.add_enabled_ui(false, |ui| {
-                        ui.label("Complete phoneme addition to modify groups...");
-                    });
-                },
-            }
-        });
+                ui.horizontal_wrapped(|ui| {
+                    self.group_panel_inner(state, ui);
+                });
+            },
+            PhonemeEditor::New { .. } => {
+                ui.add_enabled_ui(false, |ui| {
+                    ui.label("Complete phoneme addition to modify groups...");
+                });
+            },
+        }
     }
 }
 
@@ -250,28 +237,8 @@ fn get_groups(language: &Language, key: PhonemeKey) -> BTreeSet<GroupKey> {
     }).collect()
 }
 
-impl super::Tool for NewPhonemeTool {
-    fn name(&self) -> &'static str { "New Phoneme" }
-
+impl super::Editor for PhonemeEditor {
     fn show(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
-        // Handle a Phoneme selection from the previous frame
-        if let Some(buffer) = state.focus.take_if_matches(DISC_SELECT) {
-            let FocusBuffer::Phoneme { key, src } = buffer else { panic!(); };
-
-            if matches!(src, PhonemeSrc::Language) {
-                *self = Self::Editing { 
-                    phoneme_key: key, 
-                    phoneme_editor_state: widgets::EditorState::None, 
-                    groups: get_groups(&state.language, key),
-                    group_editor_state: widgets::EditorState::None,
-                    rm: false,
-                    clear: false,
-                };
-            }
-
-            state.focus.clear();
-        }
-
         if let Some(buffer) = state.focus.take_if_matches(DISC_GROUPS) {
             let FocusBuffer::Group(key) = buffer else { panic!(); };
 
@@ -290,7 +257,7 @@ impl super::Tool for NewPhonemeTool {
 
         // Handle the cleanup after a new Phoneme has been added
         let complete = match self {
-            NewPhonemeTool::New { complete, .. } 
+            PhonemeEditor::New { complete, .. } 
                 if complete.get().is_some() => complete.get().copied(),
             _ => None,
         };
@@ -313,7 +280,7 @@ impl super::Tool for NewPhonemeTool {
 
         // Handle the removal of the edited phoneme
         let rm = match self {
-            NewPhonemeTool::Editing { phoneme_key, rm, .. } 
+            PhonemeEditor::Editing { phoneme_key, rm, .. } 
                 if *rm => Some(*phoneme_key),
             _ => None,
         };
@@ -332,5 +299,27 @@ impl super::Tool for NewPhonemeTool {
         ui.separator();
         
         self.group_panel(state, ui);
+    }
+
+    fn target(&self) -> mem::Discriminant<FocusTarget> {
+        const DISC: mem::Discriminant<FocusTarget> = //
+            mem::discriminant(&FocusTarget::PhonemeEditorSelect);
+
+        DISC
+    }
+
+    fn set(&mut self, state: &mut crate::State, buffer: FocusBuffer) {
+        let FocusBuffer::Phoneme { key, src } = buffer else { panic!(); };
+
+        if matches!(src, PhonemeSrc::Language) {
+            *self = Self::Editing { 
+                phoneme_key: key, 
+                phoneme_editor_state: widgets::EditorState::None, 
+                groups: get_groups(&state.language, key),
+                group_editor_state: widgets::EditorState::None,
+                rm: false,
+                clear: false,
+            };
+        }
     }
 }

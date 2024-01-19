@@ -32,3 +32,4 @@ pub use panes::panes;
 mod tools;
 pub use tools::{Tool, ToolId};
 pub use tools::tools;
+pub use tools::editors;

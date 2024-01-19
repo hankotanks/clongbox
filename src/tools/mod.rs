@@ -1,7 +1,8 @@
 mod gen;
-mod new_phoneme;
 mod sc_builder;
 mod evo;
+
+pub mod editors;
 
 use once_cell::unsync::OnceCell;
 
@@ -11,14 +12,12 @@ use crate::State;
 #[derive(Clone, Copy)]
 #[derive(serde::Deserialize, serde::Serialize)]
 #[derive(enum_iterator::Sequence)]
-pub enum ToolId { Gen, PhonemeEditor, ScBuilder, Evo }
+pub enum ToolId { Gen, ScBuilder, Evo }
 
 impl Into<Box<dyn Tool>> for ToolId {
     fn into(self) -> Box<dyn Tool> {
         match self {
             ToolId::Gen => Box::from(gen::GenTool::default()) //
-                as Box<dyn Tool + 'static>,
-            ToolId::PhonemeEditor => Box::from(new_phoneme::NewPhonemeTool::default()) //
                 as Box<dyn Tool + 'static>,
             ToolId::ScBuilder => Box::from(sc_builder::ScBuilderTool::default()) //
                 as Box<dyn Tool + 'static>,

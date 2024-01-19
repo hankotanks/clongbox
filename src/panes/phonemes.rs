@@ -1,4 +1,4 @@
-use crate::{widgets, layout, ToolId};
+use crate::{widgets, layout, editors};
 use crate::{PhonemeKey, PhonemeSrc};
 use crate::Selection;
 
@@ -31,7 +31,7 @@ impl super::Pane for PhonemePane {
             );
 
             if flag {
-                control.set_tool(ToolId::PhonemeEditor);
+                control.show_editor(editors::EditorKey::Phoneme);
             }
         });
     }

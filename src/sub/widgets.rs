@@ -231,7 +231,7 @@ pub fn group_selection_list(
     egui_extras::TableBuilder::new(ui)
         .column(egui_extras::Column::exact(group_selection_list_size.x))
         .header(group_selection_list_size.y, |mut row| { row.col(|ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            egui::ScrollArea::vertical().auto_shrink([false, true]).show(ui, |ui| {
                 ui.vertical(|ui| {
                     ui.spacing_mut().button_padding.y = ui.spacing().item_spacing.y;
                     ui.spacing_mut().item_spacing.y *= 2.;

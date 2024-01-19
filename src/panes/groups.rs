@@ -1,4 +1,4 @@
-use crate::{widgets, layout, ToolId};
+use crate::{widgets, layout, editors};
 use crate::{GroupKey, Selection};
 use crate::{PhonemeSrc, PhonemeKey};
 
@@ -83,7 +83,7 @@ impl GroupPane {
             );
 
             if flag {
-                control.set_tool(ToolId::PhonemeEditor);
+                control.show_editor(editors::EditorKey::Phoneme);
             }
         });
     }
@@ -114,7 +114,7 @@ impl super::Pane for GroupPane {
             egui::Frame::default()
                 .stroke(ui.visuals().window_stroke)
                 .inner_margin(ui.spacing().window_margin)
-                .outer_margin(ui.spacing().window_margin)
+                .outer_margin(egui::Margin { left: 0., ..ui.spacing().window_margin })
                 .show(ui, |ui: &mut egui::Ui| {
                     self.phoneme_panel(control, state, ui);
                 });
