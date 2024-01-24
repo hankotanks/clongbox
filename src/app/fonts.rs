@@ -62,6 +62,12 @@ pub static FONT_ID: Lazy<egui::FontId> = Lazy::new(|| egui::FontId {
     family: FONT_FAMILY.to_owned()
 });
 
+pub fn ipa_rt<'a, I: Into<borrow::Cow<'a, str>>>(content: I) -> egui::RichText {
+    let content: borrow::Cow<'_, str> = content.into();
+    
+    egui::RichText::new(content).font(FONT_ID.to_owned())
+}
+
 static FONT_SCALING_DATA: OnceCell<rusttype::Font<'static>> = OnceCell::new();
 
 #[allow(dead_code)]

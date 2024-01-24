@@ -36,8 +36,7 @@ impl<'a, K: slotmap::Key> Selection<'a, K> {
 
     pub fn is_selected(&self, key: K) -> bool {
         match self {
-            Selection::Single(key_slot) //
-                if let Some(selected_key) = key_slot => *selected_key == key,
+            Selection::Single(Some(selected_key)) => *selected_key == key,
             Selection::Single(_) => false,
             Selection::Multiple(key_set) => key_set.contains(&key),
             Selection::None | Selection::Flag { .. } => false,

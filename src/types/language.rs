@@ -120,7 +120,7 @@ impl<'a> From<LanguageRaw<'a>> for Language {
                     None => {
                         let phoneme = Phoneme {
                             phoneme: Arc::from(raw_phoneme),
-                            grapheme: grapheme.map(|grapheme| Arc::from(grapheme)),
+                            grapheme: grapheme.map(Arc::from),
                         };
 
                         let phoneme_key = phonemes.insert(phoneme);
@@ -138,8 +138,8 @@ impl<'a> From<LanguageRaw<'a>> for Language {
         }
 
         let phoneme_table = phoneme_table
-            .into_iter()
-            .map(|(_, phoneme_key)| phonemes[phoneme_key].clone())
+            .into_values()
+            .map(|phoneme_key| phonemes[phoneme_key].clone())
             .collect();
 
         Self {
@@ -454,11 +454,9 @@ impl<'a, Id: Iterator<Item = GroupKey>> Iterator for GroupsMut<'a, Id> {
                 rm: &mut self.rm,
             };
 
-            let group_ref_mut = unsafe {
+            unsafe {
                 mem::transmute::<GroupRefMut<'_>, GroupRefMut<'a>>(group_ref_mut)
-            };
-
-            group_ref_mut
+            }
         })
     }
 }

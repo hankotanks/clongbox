@@ -12,8 +12,10 @@ use crate::{State, Control};
 #[derive(enum_iterator::Sequence)]
 pub enum PaneId { Groups, Phonemes, Lexicon, }
 
+#[allow(clippy::from_over_into)]
 impl Into<Box<dyn Pane>> for PaneId {
     fn into(self) -> Box<dyn Pane> {
+        #[allow(clippy::default_constructed_unit_structs)]
         match self {
             PaneId::Groups => Box::from(groups::GroupPane::default()) //
                 as Box<dyn Pane + 'static>,

@@ -26,7 +26,7 @@ impl Default for Status {
     }
 }
 
-static STATUS: Lazy<Mutex<Status>> = Lazy::new(|| Mutex::default());
+static STATUS: Lazy<Mutex<Status>> = Lazy::new(Mutex::default);
 
 pub fn set_on_hover<'a, C>(response: &Response, message: C)
     where C: Into<borrow::Cow<'a, str>> {

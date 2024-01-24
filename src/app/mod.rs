@@ -305,7 +305,7 @@ impl<const P: usize, const T: usize> App<P, T> where
 
         let min = CONFIG.window_sidebar_width - left - right;
         let max = ctx.available_rect().width() - CONFIG.window_main_width;
-        let max = max.min(ctx.available_rect().width() * 0.5);
+        let max = max.min(ctx.available_rect().width() * 0.4);
 
         let resizable = ctx.available_rect().width() - CONFIG.window_min().x;
         let resizable = resizable.abs() > 24.;
@@ -348,6 +348,8 @@ impl<const P: usize, const T: usize> App<P, T> where
 
                 let _ = editors_active.take();
             }
+
+            ui.separator();
 
             if let Some(tool) = tools[*tool_active].get_mut() {
                 tool.show(state, ui);

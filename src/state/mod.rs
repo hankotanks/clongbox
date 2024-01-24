@@ -113,16 +113,12 @@ impl<'a> StateParser<'a> {
         )?;
 
         let lexicon_re = regex::Regex::new(r"^[^\|]\S*").unwrap();
-        let lexicon = content.lines().filter_map(|line| {
+        let lexicon = content.lines().filter(|line| {
             let a = categories_re.is_match(line);
             let b = rewrite_rules_re.is_match(line);
             let c = sound_changes_re.is_match(line);
 
-            if !(a || b || c) && lexicon_re.is_match(line) {
-                Some(line)
-            } else {
-                None
-            }
+            !(a || b || c) && lexicon_re.is_match(line)
         }).collect();
 
         let romanization_re = regex::Regex::new(r"[\n^]\|(\S+)\s*\[(\S+)\]")?;
@@ -190,7 +186,7 @@ impl<'a> Into<State> for StateParser<'a> {
 
         let lexicon = self.lexicon
             .into_iter()
-            .map(|word| sync::Arc::from(word))
+            .map(sync::Arc::from)
             .collect();
         
         State {

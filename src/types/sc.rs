@@ -67,12 +67,19 @@ impl fmt::Display for Field {
     }
 }
 
+// TODO: Poor design
 impl From<Field> for usize {
     fn from(value: Field) -> Self {
-        unsafe { *(&value as *const Field as *const usize) }
+        match value {
+            Field::Target => 0,
+            Field::Replacement => 1,
+            Field::EnvStart { .. } => 2,
+            Field::EnvEnd { .. } => 3,
+        }
     }
 }
 
+// TODO: Poor design
 impl From<usize> for Field {
     fn from(value: usize) -> Self {
         match value {
@@ -108,6 +115,7 @@ impl error::Error for FieldParseError {
 }
 
 impl Field {
+    #[allow(clippy::too_many_arguments)]
     fn parse(
         &mut self,
         language: &Language,
@@ -303,14 +311,12 @@ impl Field {
                         });
 
                     // If it isn't a known phoneme or a group name/abbrev
-                    if !(a || b || raw[idx..].is_empty()) {
-                        if raw[idx..].starts_with(from) {
-                            idx += from.len();
-    
-                            let _ = rep_phoneme.insert(&raw[idx_temp..idx]);
-    
-                            break 'rep;
-                        }
+                    if !(a || b || raw[idx..].is_empty()) && raw[idx..].starts_with(from) {
+                        idx += from.len();
+
+                        let _ = rep_phoneme.insert(&raw[idx_temp..idx]);
+
+                        break 'rep;
                     }
                 }
     

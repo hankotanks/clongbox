@@ -33,4 +33,4 @@ impl Config {
 }
 
 // TODO: One day this could load from a TOML file
-pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::default());
+pub static CONFIG: Lazy<Config> = Lazy::new(Config::default);

@@ -14,8 +14,10 @@ use crate::State;
 #[derive(enum_iterator::Sequence)]
 pub enum ToolId { Gen, ScBuilder, Evo }
 
+#[allow(clippy::from_over_into)]
 impl Into<Box<dyn Tool>> for ToolId {
     fn into(self) -> Box<dyn Tool> {
+        #[allow(clippy::default_constructed_unit_structs)]
         match self {
             ToolId::Gen => Box::from(gen::GenTool::default()) //
                 as Box<dyn Tool + 'static>,

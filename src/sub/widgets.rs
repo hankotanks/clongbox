@@ -1,4 +1,4 @@
-use std::mem;
+use std::{borrow, mem};
 
 use crate::{Selection, Phoneme, PhonemeSrc, GroupKey, GroupName, FocusTarget, status};
 use crate::{Focus, FocusBuffer};
@@ -57,7 +57,7 @@ pub fn phoneme_editor(
         _ => {
             let PhonemeRefMut { key, .. } = phoneme;
 
-            focus.show_if_valid(FocusBuffer::Phoneme { key, src }, ui, |ui| {
+            let response = focus.show_if_valid(FocusBuffer::Phoneme { key, src }, ui, |ui| {
                 let content = egui::RichText::new(format!("{}", phoneme))
                     .font(fonts::FONT_ID.to_owned());
 
@@ -65,7 +65,9 @@ pub fn phoneme_editor(
                     &mut selection.is_selected(key), 
                     content
                 )
-            }).map(|response| {
+            });
+            
+            if let Some(response) = response {
                 if response.clicked() {
                     if let Selection::Flag { flag, .. } = selection {
                         let _ = mem::replace(*flag, true);
@@ -96,7 +98,7 @@ pub fn phoneme_editor(
                 });
 
                 status::set_on_hover(&response, status_message);
-            });
+            }
         },
     }
 }
@@ -152,7 +154,7 @@ fn group_editor_inner(
         _ => {
             let GroupRefMut { key, name, .. } = group;
 
-            focus.show_if_valid(FocusBuffer::Group(key), ui, |ui| {
+            let response = focus.show_if_valid(FocusBuffer::Group(key), ui, |ui| {
                 let content = egui::RichText::from(format!("{}", name))
                     .font(font.clone());
 
@@ -160,7 +162,9 @@ fn group_editor_inner(
                     &mut selection.is_selected(key), 
                     content,
                 )
-            }).map(|response| {
+            });
+            
+            if let Some(response) = response {
                 if response.clicked() {
                     selection.toggle(key);
                 } else if response.secondary_clicked() {
@@ -184,7 +188,7 @@ fn group_editor_inner(
                 });
 
                 status::set_on_hover(&response, status_message);
-            });
+            }
         },
     }
 }
@@ -242,4 +246,19 @@ pub fn group_selection_list(
                 });
             });
         }); });
+}
+
+pub fn square_button_ipa<'a, I: Into<borrow::Cow<'a, str>>>(
+    ui: &mut egui::Ui, 
+    content: I
+) -> egui::Response {
+    let content = fonts::ipa_rt(content);
+
+    let font_size = fonts::FONT_ID.size;
+
+    let button = egui::Button::new(content).min_size([font_size, font_size].into());
+
+    ui.spacing_mut().button_padding.x = ui.spacing().button_padding.y;
+
+    ui.add(button)
 }

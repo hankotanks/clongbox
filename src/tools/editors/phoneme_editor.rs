@@ -47,7 +47,7 @@ fn parse_new_phoneme(
     content: &str, 
     language: &mut Language, 
     failed: &mut bool,
-    complete: &mut OnceCell<PhonemeKey>, 
+    complete: &OnceCell<PhonemeKey>, 
 ) {
     match Phoneme::parse(content) {
         Ok(phoneme) => {
@@ -89,14 +89,14 @@ impl PhonemeEditor {
                         );
                     });
 
-                layout::button_context_line(ui,[
+                if let Some(response) = layout::button_context_line(ui,[
                     layout::BtnContextElem::Button("Clear"),
                     layout::BtnContextElem::Label("the current selection")
-                ]).map(|response| {
+                ]).get(0) {
                     if response.clicked() {
                         *clear = true;
                     }
-                });
+                }
             },
             PhonemeEditor::New { content, complete, failed, .. } => {
                 let phoneme_editor_width = fonts::ipa_text_width(content.as_str());
@@ -117,10 +117,10 @@ impl PhonemeEditor {
                 }
 
                 if content.trim().is_empty() {
-                    layout::button_context_line(ui, [
+                    if let Some(response) = layout::button_context_line(ui, [
                         layout::BtnContextElem::Label("Add a new phoneme, or..."),
                         layout::BtnContextElem::Toggle("Select", state.focus.needs(DISC_SELECT)),
-                    ]).map(|response| {
+                    ]).get(0) {
                         if response.clicked() {
                             if state.focus.needs(DISC_SELECT) {
                                 state.focus.clear();
@@ -128,18 +128,16 @@ impl PhonemeEditor {
                                 state.focus.set(ui.id(), FocusTarget::PhonemeEditorSelect);
                             }
                         }
-                    });
+                    }
                 } else if Phoneme::parse(content.as_str()).is_err() {
                     ui.label("Invalid phoneme, try following the hint text");
-                } else {
-                    layout::button_context_line(ui, [
-                        layout::BtnContextElem::Button("Confirm"),
-                        layout::BtnContextElem::Label("addition of phoneme")
-                    ]).map(|response| {
-                        if response.clicked() {
-                            phoneme_editor_response.surrender_focus();
-                        }
-                    });
+                } else if let Some(response) = layout::button_context_line(ui, [
+                    layout::BtnContextElem::Button("Confirm"),
+                    layout::BtnContextElem::Label("addition of phoneme")
+                ]).get(0) {
+                    if response.clicked() {
+                        phoneme_editor_response.surrender_focus();
+                    }
                 }
             },
             _ => {
@@ -183,7 +181,7 @@ impl PhonemeEditor {
                         state.focus.set(ui.id(), focus);
                     }
 
-                    state.language[key].keys.remove(&phoneme_key);
+                    state.language[key].keys.remove(phoneme_key);
                 }
             }
         }

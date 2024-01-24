@@ -48,7 +48,7 @@ pub fn editors() -> enum_map::EnumMap<EditorKey, OnceCell<Box<dyn Editor>>> {
 
     enum_map::enum_map! {
         // TODO: This might want to be a macro
-        EditorKey::Phoneme => helper(Box::new(phoneme_editor::PhonemeEditor::default()) as Box<dyn Editor>),
-        EditorKey::Group => helper(Box::new(group_editor::GroupEditor::default()) as Box<dyn Editor>),
+        EditorKey::Phoneme => helper(Box::<phoneme_editor::PhonemeEditor>::default() as Box<dyn Editor>),
+        EditorKey::Group => helper(Box::<group_editor::GroupEditor>::default() as Box<dyn Editor>),
     }
 }
