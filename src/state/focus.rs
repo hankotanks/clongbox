@@ -4,14 +4,20 @@ use std::mem;
 use crate::{sc, CONFIG, status};
 use crate::{GroupKey, PhonemeKey, PhonemeSrc};
 
-#[derive(Clone)]
-#[derive(serde::Deserialize, serde::Serialize)]
 pub enum FocusTarget {
-    Sc { field: sc::Field, head: bool, tail: bool, nested: bool },
+    Sc { 
+        field: sc::Field,
+        head: bool, 
+        tail: bool, 
+        nested: bool 
+    },
+
     // NOTE: This Option will always be Some, 
     // this allows us to construct a const Discriminant<FocusTarget>
     PhonemeEditorGroups { selected: Option<BTreeSet<GroupKey>> },
+
     PhonemeEditorSelect,
+
     GroupEditorSelect,
 }
 
@@ -71,7 +77,6 @@ pub enum FocusBuffer {
     Boundary,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
 pub enum Focus {
     Active { 
         id: egui::Id, 
@@ -108,6 +113,13 @@ impl Focus {
             if id == *id_curr {
                 let _  = buffer_curr.insert(buffer);
             }
+        }
+    }
+
+    pub fn get_id(&self) -> egui::Id {
+        match self {
+            Focus::Active { id, .. } => *id,
+            Focus::None => egui::Id::NULL,
         }
     }
 

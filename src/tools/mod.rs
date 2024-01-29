@@ -1,5 +1,5 @@
 mod gen;
-mod sc_builder;
+mod sca;
 mod evo;
 
 pub mod editors;
@@ -21,7 +21,7 @@ impl Into<Box<dyn Tool>> for ToolId {
         match self {
             ToolId::Gen => Box::from(gen::GenTool::default()) //
                 as Box<dyn Tool + 'static>,
-            ToolId::ScBuilder => Box::from(sc_builder::ScBuilderTool::default()) //
+            ToolId::ScBuilder => Box::from(sca::ScaTool::default()) //
                 as Box<dyn Tool + 'static>,
             ToolId::Evo => Box::from(evo::WordEvoTool::default()) //
                 as Box<dyn Tool + 'static>,

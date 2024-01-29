@@ -10,6 +10,7 @@ use slotmap::basic::Keys;
 use crate::{Phoneme, PhonemeKey, GroupName};
 use crate::{Group, GroupKey};
 
+#[allow(clippy::type_complexity)]
 #[derive(Default)]
 pub struct LanguageRaw<'a>(Vec<(GroupName, Vec<(&'a str, Option<&'a str>)>)>);
 

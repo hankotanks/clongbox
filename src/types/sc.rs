@@ -1,4 +1,4 @@
-use std::{ops, sync, error, fmt};
+use std::{error, fmt, mem, ops, sync};
 
 use slotmap::{SlotMap, SecondaryMap};
 
@@ -7,6 +7,7 @@ use crate::language::Language;
 use crate::language::PhonemeRef;
 
 #[derive(serde::Deserialize, serde::Serialize)]
+#[derive(PartialEq)]
 pub enum Element {
     Phoneme { key: PhonemeKey, rep: bool },
     Group(GroupKey),
@@ -47,6 +48,7 @@ impl Element {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Hash)]
 #[derive(serde::Deserialize, serde::Serialize)]
 #[derive(enum_map::Enum, enum_iterator::Sequence)]
 pub enum Field {
@@ -54,6 +56,40 @@ pub enum Field {
     Replacement,
     EnvStart { has_boundary: bool },
     EnvEnd { has_boundary: bool },
+}
+
+pub const ENV_START: mem::Discriminant<Field> = mem::discriminant(&Field::EnvStart { 
+    has_boundary: false 
+});
+
+pub const ENV_END: mem::Discriminant<Field> = mem::discriminant(&Field::EnvEnd { 
+    has_boundary: false 
+});
+
+pub const TARGET: mem::Discriminant<Field> = mem::discriminant(&Field::Target);
+
+pub const REPLACEMENT: mem::Discriminant<Field> = mem::discriminant(&Field::Replacement);
+
+impl Default for Field {
+    fn default() -> Self {
+        Self::Target
+    }
+}
+
+// TODO: I hate having to depend on this sort of structure
+// Need to rework
+fn field_disc_to_idx(disc: mem::Discriminant<Field>) -> usize {
+    if disc == TARGET {
+        0
+    } else if disc == REPLACEMENT {
+        1
+    } else if disc == ENV_START {
+        2
+    } else if disc == ENV_END {
+        3
+    } else {
+        unreachable!();
+    }
 }
 
 impl fmt::Display for Field {
@@ -371,19 +407,26 @@ impl Field {
 
 #[derive(Default)]
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct SoundChange([Vec<Element>; 4]);
+pub struct SoundChange {
+    fields: [Field; 4],
+    elems: [Vec<Element>; 4], 
+}
 
-impl ops::Index<Field> for SoundChange {
+impl ops::Index<mem::Discriminant<Field>> for SoundChange {
     type Output = Vec<Element>;
 
-    fn index(&self, index: Field) -> &Self::Output {
-        &self.0[usize::from(index)]
+    fn index(&self, index: mem::Discriminant<Field>) -> &Self::Output {
+        let index = field_disc_to_idx(index);
+
+        &self.elems[index]
     }
 }
 
-impl ops::IndexMut<Field> for SoundChange {
-    fn index_mut(&mut self, index: Field) -> &mut Self::Output {
-        &mut self.0[usize::from(index)]
+impl ops::IndexMut<mem::Discriminant<Field>> for SoundChange {
+    fn index_mut(&mut self, index: mem::Discriminant<Field>) -> &mut Self::Output {
+        let index = field_disc_to_idx(index);
+
+        &mut self.elems[index]
     }
 }
 
@@ -430,6 +473,47 @@ impl<'a> error::Error for SoundChangeParseError<'a> {
     }
 }
 
+// This is an intermediate method that validates the `field` member
+impl From<[Vec<Element>; 4]> for SoundChange {
+    fn from(value: [Vec<Element>; 4]) -> Self {
+        fn has_boundary(elems: &[Element]) -> bool {
+            if elems.is_empty() {
+                return false;
+            }
+
+            let start = match &elems[0] {
+                Element::Boundary => true,
+                Element::Any(elems) //
+                    if elems.contains(&Element::Boundary)=> true,
+                _ => false,
+            };
+        
+            let end = match elems.last().unwrap() {
+                Element::Boundary => true,
+                Element::Any(elems) //
+                    if elems.contains(&Element::Boundary)=> true,
+                _ => false,
+            };
+        
+            start || end
+        }
+
+        let mut sc = SoundChange {
+            elems: value, 
+            ..Default::default()
+        };
+
+        sc.fields = [
+            Field::Target,
+            Field::Replacement,
+            Field::EnvStart { has_boundary: has_boundary(&sc[ENV_START]) },
+            Field::EnvEnd { has_boundary: has_boundary(&sc[ENV_END]) },
+        ];
+
+        sc
+    }
+}
+
 impl SoundChange {
     #[allow(unused_variables)]
     pub fn parse<'a>(
@@ -468,7 +552,7 @@ impl SoundChange {
             }
 
             if sc_err.is_empty() {
-                Ok(SoundChange(sc))
+                Ok(SoundChange::from(sc))
             } else {
                 Err(SoundChangeParseError::Field(sc_err, raw))
             }
@@ -490,14 +574,72 @@ impl SoundChange {
             }
         };
 
-        field_as_str(&mut content, &self.0[0]);
+        field_as_str(&mut content, &self.elems[0]);
         content.push('\u{2192}');
-        field_as_str(&mut content, &self.0[1]);
+        field_as_str(&mut content, &self.elems[1]);
         content.push('/');
-        field_as_str(&mut content, &self.0[2]);
+        field_as_str(&mut content, &self.elems[2]);
         content.push('_');
-        field_as_str(&mut content, &self.0[3]);
+        field_as_str(&mut content, &self.elems[3]);
 
         content
     }
+}
+
+pub struct ScRefMut<'a> {
+    pub sc: &'a mut SoundChange,
+    pub rep_phonemes: &'a mut SlotMap<PhonemeKey, Phoneme>,
+    pub language: &'a mut Language,
+}
+
+impl<'a> ops::Index<mem::Discriminant<Field>> for ScRefMut<'a> {
+    type Output = Vec<Element>;
+
+    fn index(&self, index: mem::Discriminant<Field>) -> &Self::Output {
+        let index = field_disc_to_idx(index);
+
+        &self.sc.elems[index]
+    }
+}
+
+impl<'a> ops::IndexMut<mem::Discriminant<Field>> for ScRefMut<'a> {
+    fn index_mut(&mut self, index: mem::Discriminant<Field>) -> &mut Self::Output {
+        let index = field_disc_to_idx(index);
+
+        &mut self.sc.elems[index]
+    }
+}
+
+impl<'a> ScRefMut<'a> {
+    pub fn field(&self, disc: mem::Discriminant<Field>) -> &Field {
+        let index = field_disc_to_idx(disc);
+
+        &self.sc.fields[index]
+    }
+
+    pub fn field_mut(&mut self, disc: mem::Discriminant<Field>) -> &mut Field {
+        let index = field_disc_to_idx(disc);
+
+        &mut self.sc.fields[index]
+    }
+}
+
+impl SoundChange {
+    pub fn as_mut<'a>(
+        &'a mut self, 
+        language: &'a mut Language, 
+        rep_phonemes: &'a mut SlotMap<PhonemeKey, Phoneme>
+    ) -> ScRefMut<'a> {
+        ScRefMut {
+            sc: self,
+            rep_phonemes,
+            language,
+        }
+    }
+}
+
+pub struct ScElemRefMut<'a> {
+    pub elem: &'a mut Element,
+    pub rep_phonemes: &'a mut SlotMap<PhonemeKey, Phoneme>,
+    pub language: &'a mut Language,
 }

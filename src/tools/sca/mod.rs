@@ -1,43 +1,17 @@
-use crate::{layout, sc};
+mod sc_field_editor;
+
+use once_cell::sync::{Lazy, OnceCell};
+
+use crate::{layout, sc, Focus};
 use crate::app::fonts;
 
 #[derive(Default)]
-pub struct ScBuilderTool {
+pub struct ScaTool {
     active: Option<usize>,
+    active_scroll_to_bottom: bool,
 }
 
-#[allow(dead_code)]
-fn show_sound_change_element(state: &crate::State, ui: &mut egui::Ui, elem: &sc::Element) {
-    match elem {
-        sc::Element::Phoneme { key, rep } => {
-            let content = match *rep {
-                true => &state.rep_phonemes[*key],
-                false => &state.language[*key],
-            };
-
-            let content = format!("{}", content);
-            
-            ui.label(content);
-        },
-        sc::Element::Group(key) => {
-            ui.label(format!("{}", state.language[*key].name));
-        },
-        sc::Element::Boundary => {
-            ui.label("#");
-        },
-        sc::Element::Any(elems) => {
-            ui.label("[");
-
-            for elem in elems {
-                show_sound_change_element(state, ui, elem);
-            }
-
-            ui.label("]");
-        },
-    }
-}
-
-impl ScBuilderTool {
+impl ScaTool {
     fn show_sc_selector(&mut self, state: &mut crate::State, ui: &mut egui::Ui, idx: usize) {
         let crate::State { 
             language, 
@@ -47,14 +21,27 @@ impl ScBuilderTool {
     
         let content = sound_changes[idx].as_str(language, rep_phonemes);
         let content = egui::RichText::new(content)
-            .font(fonts::FONT_ID.to_owned());
+            .font(fonts::FONT_ID.to_owned())
+            .extra_letter_spacing(ui.painter().round_to_pixel(4.));
 
         match self.active {
             Some(idx_curr) if idx_curr == idx => {
                 ui.horizontal(|ui| {
                     ui.toggle_value(&mut true, content);
 
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    static LAYOUT: Lazy<egui::Layout> = Lazy::new(|| {
+                        egui::Layout::right_to_left(egui::Align::TOP)
+                    });
+
+                    ui.with_layout(*LAYOUT, |ui| {
+                        static NAV_OFFSET: OnceCell<f32> = OnceCell::new();
+
+                        ui.add_space(*NAV_OFFSET.get_or_init(|| {
+                            ui.spacing().scroll.bar_width + //
+                            ui.spacing().scroll.bar_inner_margin + //
+                            ui.spacing().scroll.bar_outer_margin
+                        }));
+
                         if ui.button(fonts::ipa_rt(" \u{00D7} ")).clicked() {
                             sound_changes.remove(idx_curr);
 
@@ -67,20 +54,21 @@ impl ScBuilderTool {
                             }
                         }
         
-                        let up = egui::Button::new(fonts::ipa_rt(" \u{2191} "));
-                        let up_enabled = idx != 0;
                         let up_decr = idx_curr.saturating_sub(1);
                         
-                        if ui.add_enabled(up_enabled, up).clicked() && up_decr != idx_curr {
+                        if ui.add_enabled(
+                            idx != 0, 
+                            egui::Button::new(fonts::ipa_rt(" \u{2191} "))
+                        ).clicked() && up_decr != idx_curr {
                             let _ = self.active.insert(up_decr);
 
                             sound_changes.swap(idx_curr, up_decr);
                         }
 
-                        let down = egui::Button::new(fonts::ipa_rt(" \u{2193} "));
-                        let down_enabled = idx != sound_changes.len().saturating_sub(1);
-
-                        if ui.add_enabled(down_enabled, down).clicked() {
+                        if ui.add_enabled(
+                            idx != sound_changes.len().saturating_sub(1), 
+                            egui::Button::new(fonts::ipa_rt(" \u{2193} "))
+                        ).clicked() {
                             let _ = self.active.insert(idx_curr + 1);
 
                             sound_changes.swap(idx_curr, idx_curr + 1);
@@ -96,48 +84,46 @@ impl ScBuilderTool {
         };
     }
 
-    fn show_sc_field(&mut self, ui: &mut egui::Ui, _field: &mut [sc::Element]) {
-        ui.label(egui::RichText::new("TODO").font(fonts::FONT_ID.to_owned()).background_color(egui::Color32::GOLD));
-    }
-
-    fn show_sc_editor(&mut self, ui: &mut egui::Ui, sound_change: &mut sc::SoundChange) {
+    fn show_sc_editor(&mut self, ui: &mut egui::Ui, mut sound_change: sc::ScRefMut<'_>, focus: &mut Focus) {
         ui.add_space(ui.spacing().item_spacing.y * 2.);
 
         ui.horizontal(|ui| {
-            let field = sc::Field::EnvStart { has_boundary: false };
+            // NOTE: This is to preserve `egui::Align::Center`
+            ui.label(fonts::ipa_rt("")); 
 
-            self.show_sc_field(ui,&mut sound_change[field] );
+            sc_field_editor::show_sc_field(ui, &mut sound_change, sc::ENV_START, focus);
 
             let content = egui::RichText::new("_")
                 .font(fonts::FONT_ID.to_owned());
 
             ui.label(content);
 
-            let field = sc::Field::EnvEnd { has_boundary: false };
-
-            self.show_sc_field(ui, &mut sound_change[field]);
+            sc_field_editor::show_sc_field(ui, &mut sound_change, sc::ENV_END, focus);
         });
-
+        
         ui.label("Environment");
 
         ui.add_space(ui.spacing().item_spacing.y * 2.);
 
         ui.horizontal(|ui| {
-            self.show_sc_field(ui, &mut sound_change[sc::Field::Target]);
+            // NOTE: This is to preserve `egui::Align::Center`
+            ui.label(fonts::ipa_rt(""));
+            
+            sc_field_editor::show_sc_field(ui, &mut sound_change, sc::TARGET, focus);
 
             let content = egui::RichText::new("\u{2192}")
                 .font(fonts::FONT_ID.to_owned());
 
             ui.label(content);
 
-            self.show_sc_field(ui, &mut sound_change[sc::Field::Replacement]);
+            sc_field_editor::show_sc_field(ui, &mut sound_change, sc::REPLACEMENT, focus);
         });
 
         ui.label("Target & Replacement");
     }
 }
 
-impl super::Tool for ScBuilderTool {
+impl super::Tool for ScaTool {
     fn name(&self) -> &'static str { "Sound Changes" }
 
     fn show(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
@@ -147,7 +133,8 @@ impl super::Tool for ScBuilderTool {
         ]).get(0) {
             if response.clicked() {
                 self.active = Some(state.sound_changes.len());
-    
+                self.active_scroll_to_bottom = true;
+
                 state.sound_changes.push(sc::SoundChange::default());
             }
         }
@@ -184,17 +171,24 @@ impl super::Tool for ScBuilderTool {
             .size(egui_extras::Size::exact(height))
             .vertical(|mut strip| {
                 strip.cell(|ui| {
-                    egui::ScrollArea::vertical()
-                        .auto_shrink([false, true])
-                        .show(ui, |ui| {
-                            let mut idx = 0;
+                    let mut scroller = egui::ScrollArea::vertical()
+                        .auto_shrink([false, true]);
 
-                            while idx < state.sound_changes.len() {
-                                self.show_sc_selector(state, ui, idx);
+                    if self.active_scroll_to_bottom {
+                        scroller = scroller.vertical_scroll_offset(ui.available_height());
 
-                                idx += 1;
-                            }
-                        });
+                        self.active_scroll_to_bottom = false;
+                    }
+                    
+                    scroller.show(ui, |ui| {
+                        let mut idx = 0;
+
+                        while idx < state.sound_changes.len() {
+                            self.show_sc_selector(state, ui, idx);
+
+                            idx += 1;
+                        }
+                    });
                 });
 
                 strip.cell(|ui| {
@@ -202,10 +196,18 @@ impl super::Tool for ScBuilderTool {
 
                     match self.active {
                         Some(idx) => {
-                            let sound_change = &mut state.sound_changes[idx];
+                            let crate::State {
+                                sound_changes,
+                                rep_phonemes,
+                                language, 
+                                focus, ..
+                            } = state;
+
+                            let sound_change = &mut sound_changes[idx];
+                            let sound_change = sound_change.as_mut(language, rep_phonemes);
                             
                             layout::hungry_frame_bottom_up(ui, |ui| {
-                                self.show_sc_editor(ui, sound_change);
+                                self.show_sc_editor(ui, sound_change, focus);
                             });
                         },
                         None => {
