@@ -83,44 +83,6 @@ impl ScaTool {
             },
         };
     }
-
-    fn show_sc_editor(&mut self, ui: &mut egui::Ui, mut sound_change: sc::ScRefMut<'_>, focus: &mut Focus) {
-        ui.add_space(ui.spacing().item_spacing.y * 2.);
-
-        ui.horizontal(|ui| {
-            // NOTE: This is to preserve `egui::Align::Center`
-            ui.label(fonts::ipa_rt("")); 
-
-            sc_field_editor::show_sc_field(ui, &mut sound_change, sc::ENV_START, focus);
-
-            let content = egui::RichText::new("_")
-                .font(fonts::FONT_ID.to_owned());
-
-            ui.label(content);
-
-            sc_field_editor::show_sc_field(ui, &mut sound_change, sc::ENV_END, focus);
-        });
-        
-        ui.label("Environment");
-
-        ui.add_space(ui.spacing().item_spacing.y * 2.);
-
-        ui.horizontal(|ui| {
-            // NOTE: This is to preserve `egui::Align::Center`
-            ui.label(fonts::ipa_rt(""));
-            
-            sc_field_editor::show_sc_field(ui, &mut sound_change, sc::TARGET, focus);
-
-            let content = egui::RichText::new("\u{2192}")
-                .font(fonts::FONT_ID.to_owned());
-
-            ui.label(content);
-
-            sc_field_editor::show_sc_field(ui, &mut sound_change, sc::REPLACEMENT, focus);
-        });
-
-        ui.label("Target & Replacement");
-    }
 }
 
 impl super::Tool for ScaTool {
@@ -207,7 +169,7 @@ impl super::Tool for ScaTool {
                             let sound_change = sound_change.as_mut(language, rep_phonemes);
                             
                             layout::hungry_frame_bottom_up(ui, |ui| {
-                                self.show_sc_editor(ui, sound_change, focus);
+                                sc_field_editor::show_sc_editor(ui, sound_change, focus);
                             });
                         },
                         None => {

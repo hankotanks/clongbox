@@ -132,7 +132,7 @@ fn show_sc_element_addition(
     }
 }
 
-pub fn show_sc_field(
+fn show_sc_field(
     ui: &mut egui::Ui,
     sound_change: &mut sc::ScRefMut<'_>, 
     field_disc: mem::Discriminant<sc::Field>,
@@ -190,4 +190,59 @@ pub fn show_sc_field(
     if elements_is_empty || should_show_addition {
         show_sc_element_addition(ui, elements, focus, target);
     }
+}
+
+pub fn show_sc_editor(ui: &mut egui::Ui, mut sound_change: sc::ScRefMut<'_>, focus: &mut Focus) {
+    ui.add_space(ui.spacing().item_spacing.y * 2.);
+
+    let rect = ui.available_rect_before_wrap();
+
+    ui.horizontal(|ui| {
+        // NOTE: This is to preserve `egui::Align::Center`
+        ui.label(fonts::ipa_rt("")); 
+
+        show_sc_field(ui, &mut sound_change, sc::ENV_START, focus);
+
+        let content = egui::RichText::new("_")
+            .font(fonts::FONT_ID.to_owned());
+
+        ui.label(content);
+
+        show_sc_field(ui, &mut sound_change, sc::ENV_END, focus);
+    });
+    
+    ui.label("Environment");
+
+    ui.add_space(ui.spacing().item_spacing.y * 2.);
+
+    ui.horizontal(|ui| {
+        // NOTE: This is to preserve `egui::Align::Center`
+        ui.label(fonts::ipa_rt(""));
+        
+        show_sc_field(ui, &mut sound_change, sc::TARGET, focus);
+
+        let content = egui::RichText::new("\u{2192}")
+            .font(fonts::FONT_ID.to_owned());
+
+        ui.label(content);
+
+        show_sc_field(ui, &mut sound_change, sc::REPLACEMENT, focus);
+    });
+
+    egui_extras::StripBuilder::new(ui)
+        .sizes(egui_extras::Size::remainder(), 2)
+        .horizontal(|mut strip| {
+            strip.cell(|ui| {
+                ui.label("Target & Replacement");
+            });
+
+            strip.cell(|ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    ui.button("#");
+
+                    ui.button("[  ]");
+                });
+                
+            });
+        });
 }
