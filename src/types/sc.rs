@@ -412,6 +412,14 @@ pub struct SoundChange {
     elems: [Vec<Element>; 4], 
 }
 
+impl SoundChange {
+    pub fn field_mut(&mut self, field: mem::Discriminant<Field>) -> (&mut Field, &mut Vec<Element>) {
+        let idx = field_disc_to_idx(field);
+
+        (&mut self.fields[idx], &mut self.elems[idx])
+    }
+}
+
 impl ops::Index<mem::Discriminant<Field>> for SoundChange {
     type Output = Vec<Element>;
 
@@ -592,35 +600,10 @@ pub struct ScRefMut<'a> {
     pub language: &'a mut Language,
 }
 
-impl<'a> ops::Index<mem::Discriminant<Field>> for ScRefMut<'a> {
-    type Output = Vec<Element>;
-
-    fn index(&self, index: mem::Discriminant<Field>) -> &Self::Output {
-        let index = field_disc_to_idx(index);
-
-        &self.sc.elems[index]
-    }
-}
-
-impl<'a> ops::IndexMut<mem::Discriminant<Field>> for ScRefMut<'a> {
-    fn index_mut(&mut self, index: mem::Discriminant<Field>) -> &mut Self::Output {
-        let index = field_disc_to_idx(index);
-
-        &mut self.sc.elems[index]
-    }
-}
-
+// TODO: This shadows the SoundChange method of the same name
 impl<'a> ScRefMut<'a> {
-    pub fn field(&self, disc: mem::Discriminant<Field>) -> &Field {
-        let index = field_disc_to_idx(disc);
-
-        &self.sc.fields[index]
-    }
-
-    pub fn field_mut(&mut self, disc: mem::Discriminant<Field>) -> &mut Field {
-        let index = field_disc_to_idx(disc);
-
-        &mut self.sc.fields[index]
+    pub fn field_mut(&mut self, field: mem::Discriminant<Field>) -> (&mut Field, &mut Vec<Element>) {
+        self.sc.field_mut(field)
     }
 }
 

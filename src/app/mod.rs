@@ -289,6 +289,12 @@ impl<const P: usize, const T: usize> App<P, T> where
             panic!();
         };
 
+        ctx.input(|input| {
+            if input.key_released(egui::Key::Escape) {
+                state.focus.clear();
+            }
+        });
+
         ctx.input_mut(|input| {
             for event in events_queue.drain(0..) {
                 input.events.push(event);

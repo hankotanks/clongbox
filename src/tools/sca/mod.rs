@@ -1,8 +1,9 @@
-mod sc_field_editor;
+mod sc_editor;
 
 use once_cell::sync::{Lazy, OnceCell};
 
-use crate::{layout, sc, Focus};
+use crate::{layout, sc};
+use crate::FocusBuffer;
 use crate::app::fonts;
 
 #[derive(Default)]
@@ -12,7 +13,12 @@ pub struct ScaTool {
 }
 
 impl ScaTool {
-    fn show_sc_selector(&mut self, state: &mut crate::State, ui: &mut egui::Ui, idx: usize) {
+    fn show_sc_selector(
+        &mut self, 
+        state: &mut crate::State, 
+        ui: &mut egui::Ui, 
+        idx: usize
+    ) {
         let crate::State { 
             language, 
             rep_phonemes, 
@@ -83,6 +89,80 @@ impl ScaTool {
             },
         };
     }
+
+    // TODO: Do we need to pass in `idx` or just take `&self` and unwrap?
+    fn show_sc_editor(ui: &mut egui::Ui, state: &mut crate::State, idx: usize) {
+        let crate::State {
+            focus,
+            sound_changes,
+            rep_phonemes,
+            language, ..
+        } = state;
+
+        let sound_change = &mut sound_changes[idx];
+
+        ui.add_space(ui.spacing().item_spacing.y * 2.);
+    
+        ui.horizontal(|ui| {
+            // NOTE: This is to preserve `egui::Align::Center`
+            ui.label(fonts::ipa_rt(""));
+
+            sc_editor::show_sc_field(ui, {
+                sound_change.as_mut(language, rep_phonemes)
+            }, sc::ENV_START, focus);
+    
+            let content = egui::RichText::new("_")
+                .font(fonts::FONT_ID.to_owned());
+    
+            ui.label(content);
+
+            sc_editor::show_sc_field(ui, {
+                sound_change.as_mut(language, rep_phonemes)
+            }, sc::ENV_END, focus);
+        });
+        
+        ui.label("Environment");
+    
+        ui.add_space(ui.spacing().item_spacing.y * 2.);
+    
+        ui.horizontal(|ui| {
+            // NOTE: This is to preserve `egui::Align::Center`
+            ui.label(fonts::ipa_rt(""));
+
+            sc_editor::show_sc_field(ui, {
+                sound_change.as_mut(language, rep_phonemes)
+            }, sc::TARGET, focus);
+    
+            let content = egui::RichText::new("\u{2192}")
+                .font(fonts::FONT_ID.to_owned());
+    
+            ui.label(content);
+
+            sc_editor::show_sc_field(ui, {
+                sound_change.as_mut(language, rep_phonemes)
+            }, sc::REPLACEMENT, focus);
+        });
+    
+        egui_extras::StripBuilder::new(ui)
+            .sizes(egui_extras::Size::remainder(), 2)
+            .horizontal(|mut strip| {
+                strip.cell(|ui| {
+                    ui.label("Target & Replacement");
+                });
+    
+                strip.cell(|ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                        focus.show_if_valid(FocusBuffer::Boundary, ui, |ui| {
+                            ui.button("#")
+                        });
+                        
+                        focus.show_if_valid(FocusBuffer::Any, ui, |ui| {
+                            ui.button("[  ]")
+                        });
+                    });
+                });
+            });
+    }
 }
 
 impl super::Tool for ScaTool {
@@ -98,26 +178,6 @@ impl super::Tool for ScaTool {
                 self.active_scroll_to_bottom = true;
 
                 state.sound_changes.push(sc::SoundChange::default());
-            }
-        }
-
-        let response = layout::button_context_line(ui, [
-            layout::BtnContextElem::Label("Insert"),
-            layout::BtnContextElem::Enabled("[  ]", true),
-            layout::BtnContextElem::Label("or"),
-            layout::BtnContextElem::Enabled("#", true),
-            layout::BtnContextElem::Label("at the selected location")
-        ]);
-
-        if let Some(response) = response.get(0) {
-            if response.clicked() {
-                println!("brackets");
-            }
-        }
-
-        if let Some(response) = response.get(1) {
-            if response.clicked() {
-                println!("boundary");
             }
         }
 
@@ -158,23 +218,13 @@ impl super::Tool for ScaTool {
 
                     match self.active {
                         Some(idx) => {
-                            let crate::State {
-                                sound_changes,
-                                rep_phonemes,
-                                language, 
-                                focus, ..
-                            } = state;
-
-                            let sound_change = &mut sound_changes[idx];
-                            let sound_change = sound_change.as_mut(language, rep_phonemes);
-                            
                             layout::hungry_frame_bottom_up(ui, |ui| {
-                                sc_field_editor::show_sc_editor(ui, sound_change, focus);
+                                Self::show_sc_editor(ui, state, idx);
                             });
                         },
                         None => {
                             ui.centered_and_justified(|ui| {
-                                ui.heading("Select a sound change to edit it");
+                                ui.heading("Select a sound change");
                             });
                         },
                     }
