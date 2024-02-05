@@ -6,6 +6,7 @@ use crate::{Phoneme, PhonemeKey, GroupKey, GroupName};
 use crate::language::Language;
 use crate::language::PhonemeRef;
 
+#[derive(Clone)]
 #[derive(serde::Deserialize, serde::Serialize)]
 #[derive(PartialEq)]
 pub enum Element {
