@@ -28,7 +28,14 @@ impl ScaTool {
         let content = sound_changes[idx].as_str(language, rep_phonemes);
         let content = egui::RichText::new(content)
             .font(fonts::FONT_ID.to_owned())
-            .extra_letter_spacing(ui.painter().round_to_pixel(4.));
+            .extra_letter_spacing(ui.painter().round_to_pixel(4.))
+            .color({
+                if sound_changes[idx].invalid() {
+                    ui.visuals().error_fg_color
+                } else {
+                    ui.visuals().text_color()
+                }
+            });
 
         match self.active {
             Some(idx_curr) if idx_curr == idx => {

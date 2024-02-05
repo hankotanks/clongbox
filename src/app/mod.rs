@@ -1,9 +1,10 @@
-use std::{borrow, io, mem, sync};
+use std::{borrow, io, mem};
 
-use once_cell::sync::Lazy;
 use once_cell::unsync::OnceCell;
 
-use crate::{editors, sc, Control, Pane, PhonemeKey, State, Tool, CONFIG};
+use crate::{editors, sc};
+use crate::{Control, Pane, Tool, State};
+use crate::CONFIG;
 use crate::{panes, tools};
 
 pub mod fonts;
@@ -278,9 +279,7 @@ impl<const P: usize, const T: usize> App<P, T> where
     fn deletion_handler(&mut self) {
         let App::Ready {
             state, ..
-        } = self else {
-            panic!();
-        };
+        } = self else { panic!(); };
 
         let State { 
             sound_changes, 
@@ -297,24 +296,24 @@ impl<const P: usize, const T: usize> App<P, T> where
                 fn invalidate(
                     elems: &mut [sc::Element], 
                     language: &mut crate::language::Language, 
-                    rep_phonemes: &mut slotmap::SlotMap<PhonemeKey, crate::Phoneme>
+                    rep_phonemes: &mut slotmap::SlotMap<crate::PhonemeKey, crate::Phoneme>
                 ) {
-                    static INVALID_ELEM: Lazy<sc::Element> = Lazy::new(|| {
-                        sc::Element::Invalid(sync::Arc::from("\u{2205}")) 
-                    });
-
                     for elem in elems.iter_mut() {
                         match elem {
                             sc::Element::Phoneme { key, rep } 
-                                if (!*rep && language.phoneme_ref(*key).is_none()) 
-                                    || (*rep && rep_phonemes.get(*key).is_none()) => {
+                                if !*rep && language.phoneme_ref(*key).is_none() => {
 
-                                let _ = mem::replace(elem, INVALID_ELEM.to_owned());
+                                let _ = mem::replace(elem, sc::Element::Invalid);
+                            },
+                            sc::Element::Phoneme { key, rep } 
+                                if *rep && rep_phonemes.get(*key).is_none() => { 
+
+                                let _ = mem::replace(elem, sc::Element::Invalid);
                             },
                             sc::Element::Group(key) 
                                 if language.group_ref(*key).is_none() => {
 
-                                let _ = mem::replace(elem, INVALID_ELEM.to_owned());
+                                let _ = mem::replace(elem, sc::Element::Invalid);
                             },
                             sc::Element::Any(elems) => {
                                 invalidate(elems, language, rep_phonemes);

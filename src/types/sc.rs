@@ -14,7 +14,7 @@ pub enum Element {
     Group(GroupKey),
     Boundary,
     Any(Vec<Element>),
-    Invalid(sync::Arc<str>),
+    Invalid,
 }
 
 impl Element {
@@ -45,7 +45,7 @@ impl Element {
                 content.push(']');
                 content
             },
-            Element::Invalid(content) => content.to_string(),
+            Element::Invalid => String::from("\u{2205}"),
         }
     }
 }
@@ -416,10 +416,29 @@ pub struct SoundChange {
 }
 
 impl SoundChange {
+    pub fn field(&self, field: mem::Discriminant<Field>) -> (Field, &[Element]) {
+        let idx = field_disc_to_idx(field);
+
+        (self.fields[idx], self.elems[idx].as_slice())
+    }
+
     pub fn field_mut(&mut self, field: mem::Discriminant<Field>) -> (&mut Field, &mut Vec<Element>) {
         let idx = field_disc_to_idx(field);
 
         (&mut self.fields[idx], &mut self.elems[idx])
+    }
+
+    pub fn invalid(&self) -> bool {
+        for field in enum_iterator::all::<Field>() {
+            let (_, elems) = self.field(mem::discriminant(&field));
+
+            if elems.contains(&Element::Invalid) {
+                return true;
+            }
+
+        }
+        
+        false
     }
 }
 

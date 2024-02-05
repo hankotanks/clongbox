@@ -97,9 +97,9 @@ fn show_sc_element_inner(
 
             ui.label(fonts::ipa_rt("]"));
         },
-        sc::Element::Invalid(content) => {
-            let content = format!("{}", content);
-            let content = fonts::ipa_rt(content).color(ui.visuals().error_fg_color);
+        sc::Element::Invalid => {
+            let content = fonts::ipa_rt("\u{2205}")
+                .color(ui.visuals().error_fg_color);
 
             // TODO: This could be a button that allows the user to select a replacement
             ui.label(content);
