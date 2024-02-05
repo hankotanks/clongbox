@@ -13,6 +13,7 @@ pub enum Element {
     Group(GroupKey),
     Boundary,
     Any(Vec<Element>),
+    Invalid(sync::Arc<str>),
 }
 
 impl Element {
@@ -43,6 +44,7 @@ impl Element {
                 content.push(']');
                 content
             },
+            Element::Invalid(content) => content.to_string(),
         }
     }
 }

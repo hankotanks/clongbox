@@ -1,8 +1,8 @@
-use std::{borrow, io};
+use std::{borrow, io, mem, sync};
 
 use once_cell::unsync::OnceCell;
 
-use crate::{State, Pane, Tool, CONFIG, Control, editors};
+use crate::{editors, sc, Control, Pane, PhonemeKey, State, Tool, CONFIG};
 use crate::{panes, tools};
 
 pub mod fonts;
@@ -64,7 +64,7 @@ impl<const P: usize, const T: usize> Default for App<P, T> where
 }
 
 impl<const P: usize, const T: usize> App<P, T> where 
-    [OnceCell<Box<dyn Pane>>; P]: Default, 
+    [OnceCell<Box<dyn Pane>>; P]: Default,
     [OnceCell<Box<dyn Tool>>; T]: Default {
 
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -274,7 +274,53 @@ impl<const P: usize, const T: usize> App<P, T> where
     [OnceCell<Box<dyn Pane>>; P]: Default, 
     [OnceCell<Box<dyn Tool>>; T]: Default {
 
+    fn deletion_handler(&mut self) {
+        let App::Ready {
+            state, ..
+        } = self else {
+            panic!();
+        };
+
+        let State { 
+            sound_changes, 
+            language, 
+            rep_phonemes, .. 
+        } = state;
+
+        for sound_change in sound_changes.iter_mut() {
+            for field in enum_iterator::all::<sc::Field>() {
+                let field_disc = mem::discriminant(&field);
+
+                let (_, elems) = sound_change.field_mut(field_disc);
+
+                fn invalidate(
+                    elems: &mut [sc::Element], 
+                    language: &mut crate::language::Language, 
+                    rep_phonemes: &mut slotmap::SlotMap<PhonemeKey, crate::Phoneme>
+                ) {
+                    for elem in elems.iter_mut() {
+                        match elem {
+                            sc::Element::Phoneme { key, rep } 
+                                if (!*rep && language.phoneme_ref(*key).is_none()) 
+                                    || (*rep && rep_phonemes.get(*key).is_none()) => {
+                                let _ = mem::replace(elem, sc::Element::Invalid(sync::Arc::from("\u{2205}")));
+                            },
+                            sc::Element::Any(elems) => {
+                                invalidate(elems, language, rep_phonemes);
+                            },
+                            _ => { /*  */ }
+                        }
+                    }
+                }
+
+                invalidate(elems, language, rep_phonemes);
+            }
+        }
+    }
+
     fn show_ready(&mut self, ctx: &egui::Context) {
+        self.deletion_handler();
+
         let App::Ready { 
             state, 
             panes,

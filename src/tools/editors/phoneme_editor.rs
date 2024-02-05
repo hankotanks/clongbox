@@ -118,7 +118,7 @@ impl PhonemeEditor {
 
                 if content.trim().is_empty() {
                     if let Some(response) = layout::button_context_line(ui, [
-                        layout::BtnContextElem::Label("Add a new phoneme, or..."),
+                        layout::BtnContextElem::Label("Add a new phoneme, or"),
                         layout::BtnContextElem::Toggle("Select", state.focus.needs(DISC_SELECT)),
                     ]).get(0) {
                         if response.clicked() {
@@ -284,6 +284,7 @@ impl super::Editor for PhonemeEditor {
         };
 
         if let Some(phoneme_key) = rm {
+            // TODO: One day, this will have to deal with the `rep_phonemes`
             state.language.phoneme_remove(phoneme_key);
 
             let _ = mem::take(self);

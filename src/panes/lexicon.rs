@@ -1,3 +1,5 @@
+use crate::app::fonts;
+
 #[derive(Default)]
 pub struct LexiconPane;
 
@@ -7,11 +9,15 @@ impl super::Pane for LexiconPane {
     fn show(
         &mut self, 
         _control: crate::Control<'_>, 
-        _state: &mut crate::State, 
+        state: &mut crate::State, 
         ui: &mut egui::Ui
     ) {
-        ui.centered_and_justified(|ui| {
-            ui.heading(self.name());
+        let crate::State { lexicon, .. } = state;
+
+        ui.horizontal_wrapped(|ui| {
+            for word in lexicon {
+                ui.label(fonts::ipa_rt(&**word));
+            }
         });
     }
 }
