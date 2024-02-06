@@ -97,8 +97,9 @@ impl ScaTool {
         };
     }
 
-    // TODO: Do we need to pass in `idx` or just take `&self` and unwrap?
-    fn show_sc_editor(ui: &mut egui::Ui, state: &mut crate::State, idx: usize) {
+    fn show_sc_editor(&self, ui: &mut egui::Ui, state: &mut crate::State) {
+        let Some(idx) = self.active else { unreachable!(); };
+
         let crate::State {
             focus,
             sound_changes,
@@ -193,7 +194,8 @@ impl super::Tool for ScaTool {
         let height = ui.text_style_height(&egui::TextStyle::Body) * 2. + //
             fonts::FONT_ID.size * 2. + //
             ui.spacing().button_padding.y * 4. + //
-            ui.spacing().item_spacing.y * 10.;
+            ui.spacing().item_spacing.y * 10. + //
+            ui.spacing().window_margin.bottom;
 
         egui_extras::StripBuilder::new(ui)
             .size(egui_extras::Size::remainder())
@@ -223,17 +225,16 @@ impl super::Tool for ScaTool {
                 strip.cell(|ui| {
                     ui.separator();
 
-                    match self.active {
-                        Some(idx) => {
-                            layout::hungry_frame_bottom_up(ui, |ui| {
-                                Self::show_sc_editor(ui, state, idx);
-                            });
-                        },
-                        None => {
-                            ui.centered_and_justified(|ui| {
-                                ui.heading("Select a sound change");
-                            });
-                        },
+                    if self.active.is_some() {
+                        layout::hungry_frame_bottom_up(ui, |ui| {
+                            ui.add_space(ui.spacing().window_margin.bottom);
+                            
+                            self.show_sc_editor(ui, state);
+                        });
+                    } else {
+                        ui.centered_and_justified(|ui| {
+                            ui.heading("Select a sound change");
+                        });
                     }
                 });
             });

@@ -1,4 +1,4 @@
-use std::{borrow, mem};
+use std::mem;
 
 use crate::{Selection, Phoneme, PhonemeSrc, GroupKey, GroupName, FocusTarget, status};
 use crate::{Focus, FocusBuffer};
@@ -246,19 +246,4 @@ pub fn group_selection_list(
                 });
             });
         }); });
-}
-
-pub fn square_button_ipa<'a, I: Into<borrow::Cow<'a, str>>>(
-    ui: &mut egui::Ui, 
-    content: I
-) -> egui::Response {
-    let content = fonts::ipa_rt(content);
-
-    let font_size = fonts::FONT_ID.size;
-
-    let button = egui::Button::new(content).min_size([font_size, font_size].into());
-
-    ui.spacing_mut().button_padding.x = ui.spacing().button_padding.y;
-
-    ui.add(button)
 }

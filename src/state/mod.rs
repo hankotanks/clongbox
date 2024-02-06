@@ -6,7 +6,7 @@ use egui::ahash::HashMap;
 
 use slotmap::{SlotMap, SecondaryMap};
 
-use crate::Focus;
+use crate::{Focus, Syllable};
 use crate::{PhonemeKey, Phoneme};
 use crate::sc::SoundChange;
 use crate::language::{Language, LanguageRaw};
@@ -23,6 +23,10 @@ pub struct State {
     pub sound_changes_broken: Vec<sync::Arc<str>>,
 
     pub lexicon: Vec<sync::Arc<str>>,
+
+    // TODO: This member should be serializable one day (and parsed from file)
+    #[serde(skip)]
+    pub phonotactics: Vec<Syllable>,
 
     #[serde(skip)]
     pub focus: Focus,
@@ -196,6 +200,7 @@ impl<'a> Into<State> for StateParser<'a> {
             sound_changes,
             sound_changes_broken: broken,
             lexicon,
+            phonotactics: Vec::new(), // TODO
             focus: Focus::default(),
         }
     }

@@ -2,7 +2,7 @@ use std::mem;
 
 use once_cell::sync::OnceCell;
 
-use crate::{Focus, FocusBuffer, FocusTarget};
+use crate::{status, Focus, FocusBuffer, FocusTarget};
 use crate::app::fonts;
 use crate::sc;
 use crate::CONFIG;
@@ -13,6 +13,33 @@ struct ScTarget<'a> {
     head: bool,
     tail: bool,
     nested: bool,
+    invalid: bool,
+}
+
+fn focus_buffer_to_element(buffer: FocusBuffer, field: &mut sc::Field) -> sc::Element {
+    match buffer {
+        FocusBuffer::Phoneme { key, src } => {
+            let rep = match src {
+                crate::PhonemeSrc::Language => false,
+                crate::PhonemeSrc::Rep => true,
+            };
+
+            sc::Element::Phoneme { key, rep }
+        },
+        FocusBuffer::Group(key) => sc::Element::Group(key),
+        FocusBuffer::Any => sc::Element::Any(Vec::default()),
+        FocusBuffer::Boundary => {
+            match field {
+                sc::Field::EnvStart { has_boundary } | 
+                sc::Field::EnvEnd { has_boundary } => {
+                    *has_boundary = true;
+                },
+                _ => { /*  */ }
+            }
+
+            sc::Element::Boundary 
+        },
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -33,7 +60,8 @@ fn show_sc_element_inner(
     let ScTarget {
         field,
         head,
-        tail, ..
+        tail, 
+        nested, ..
     } = target;
 
     match elem {
@@ -72,6 +100,7 @@ fn show_sc_element_inner(
                     head,
                     tail,
                     nested: true,
+                    invalid: false,
                 };
 
                 match show_sc_element(ui, elem, focus, target) {
@@ -82,8 +111,8 @@ fn show_sc_element_inner(
                 }
             }
 
-            if let Some(elem_to_remove) = elem_to_remove.take() {
-                elems.remove(elem_to_remove);
+            if let Some(idx) = elem_to_remove.take() {
+                elems.remove(idx);
             }
 
             let target = ScTarget {
@@ -91,6 +120,7 @@ fn show_sc_element_inner(
                 head,
                 tail,
                 nested: true,
+                invalid: false,
             };
 
             show_sc_element_addition(ui, elems, focus, target);
@@ -101,8 +131,44 @@ fn show_sc_element_inner(
             let content = fonts::ipa_rt("\u{2205}")
                 .color(ui.visuals().error_fg_color);
 
-            // TODO: This could be a button that allows the user to select a replacement
-            ui.label(content);
+            let target = ScTarget {
+                field,
+                head,
+                tail,
+                nested,
+                invalid: true,
+            };
+
+            let id = ui.id().with(&target);
+
+            if let Some(buffer) = focus.take(id) {
+                let _ = mem::replace(elem, focus_buffer_to_element(buffer, field));
+
+                focus.clear();
+            } 
+
+            // TODO: Right-clicking should delete the invalid element outright
+            if focus.get_id() == id {
+                if ui.toggle_value(&mut true, content).clicked() {
+                    focus.clear();
+                }
+            } else {
+                let response = ui.button(content);
+
+                if response.clicked() {
+                    let target = FocusTarget::Sc {
+                        field: *field,
+                        head,
+                        tail,
+                        nested,
+                    };
+            
+                    focus.set(id, target);
+                }
+
+                status::set_on_hover(&response, "Click to replace this deleted sound change element. Right-click to erase")
+            };
+            
         },
     }
 }
@@ -113,6 +179,12 @@ fn show_sc_element(
     focus: &mut Focus,
     target: ScTarget<'_>,
 ) -> ScElemAction {
+    let invalid = {
+        let sc::ScElemRefMut { elem, .. } = &elem;
+
+        matches!(elem, sc::Element::Invalid)
+    };
+
     let response = egui::Frame::default().show(ui, |ui| {
         show_sc_element_inner(ui, elem, focus, target);
     }).response;
@@ -122,7 +194,9 @@ fn show_sc_element(
     });
 
     let draw_border = || {
-        ui.painter().rect_stroke(rect, CONFIG.selection_rounding, ui.visuals().window_stroke);
+        if !invalid {
+            ui.painter().rect_stroke(rect, CONFIG.selection_rounding, ui.visuals().window_stroke);
+        }
     };
 
     if response.hovered() {
@@ -164,34 +238,12 @@ fn show_sc_element_addition(
         field,
         head,
         tail,
-        nested,
+        nested, ..
     } = target;
 
     match focus.take(id) {
         Some(buffer) => {
-            let elem = match buffer {
-                FocusBuffer::Phoneme { key, src } => {
-                    let rep = match src {
-                        crate::PhonemeSrc::Language => false,
-                        crate::PhonemeSrc::Rep => true,
-                    };
-
-                    sc::Element::Phoneme { key, rep }
-                },
-                FocusBuffer::Group(key) => sc::Element::Group(key),
-                FocusBuffer::Any => sc::Element::Any(Vec::default()),
-                FocusBuffer::Boundary => {
-                    match field {
-                        sc::Field::EnvStart { has_boundary } | 
-                        sc::Field::EnvEnd { has_boundary } => {
-                            *has_boundary = true;
-                        },
-                        _ => { /*  */ }
-                    }
-
-                    sc::Element::Boundary 
-                },
-            };
+            let elem = focus_buffer_to_element(buffer, field);
 
             if head {
                 elems.insert(0, elem);
@@ -204,13 +256,11 @@ fn show_sc_element_addition(
         None => { /*  */ },
     }
 
-    let response = if focus.get_id() == id {
-        ui.toggle_value(&mut true, "+")
-    } else {
-        ui.add_sized(*size, egui::Button::new("+"))
-    };
-
-    if response.clicked() {
+    if focus.get_id() == id {
+        if ui.toggle_value(&mut true, "+").clicked() {
+            focus.clear();
+        }
+    } else if ui.add_sized(*size, egui::Button::new("+")).clicked() {
         let target = FocusTarget::Sc {
             field: *field,
             head,
@@ -219,7 +269,7 @@ fn show_sc_element_addition(
         };
 
         focus.set(id, target);
-    }
+    };
 }
 
 pub fn show_sc_field(
@@ -246,6 +296,7 @@ pub fn show_sc_field(
             head,
             tail,
             nested,
+            invalid: false,
         };
 
         show_sc_element_addition(ui, elements, focus, target);
@@ -277,6 +328,7 @@ pub fn show_sc_field(
                 head,
                 tail,
                 nested,
+                invalid: false,
             };
 
             let elem = sc::ScElemRefMut {
@@ -333,6 +385,7 @@ pub fn show_sc_field(
             head,
             tail,
             nested,
+            invalid: false,
         };
 
         show_sc_element_addition(ui, elements, focus, target);

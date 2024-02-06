@@ -464,24 +464,16 @@ impl<'a, Id: Iterator<Item = GroupKey>> Iterator for GroupsMut<'a, Id> {
 
 impl Language {
     pub fn phonemes(&self, key: GroupKey) -> Option<Phonemes<'_>> {
-        match self.groups.get(key) {
-            Some(group) => {
-                let phonemes = Phonemes {
-                    idx: 0,
-                    keys: group.keys.iter().copied().collect(),
-                    source: &self.phonemes,
-                };
-
-                Some(phonemes)
-            },
-            None => None,
-        }
-        
+        self.groups.get(key).map(|group| {
+            Phonemes {
+                idx: 0,
+                keys: group.keys.iter().copied().collect(),
+                source: &self.phonemes
+            }
+        })
     }
 
     pub fn phoneme_ref(&self, key: PhonemeKey) -> Option<PhonemeRef<'_>> {
-        // TODO: Restructure all of the functions 
-        // in this impl block using Option::map
         self.phonemes.get(key).map(|Phoneme { phoneme, grapheme }| 
             PhonemeRef { key, phoneme, grapheme: grapheme.as_ref() }
         )
@@ -496,19 +488,16 @@ impl Language {
     }
 
     pub fn phonemes_mut(&mut self, key: GroupKey) -> Option<PhonemesMut<'_>> {
-        match self.groups.get(key) {
-            Some(group) => {
-                let phonemes_mut = PhonemesMut {
-                    idx: 0,
-                    keys: group.keys.iter().copied().collect(),
-                    rm: false,
-                    source: Ok(self),
-                };
-
-                Some(phonemes_mut)
-            },
-            None => None,
-        }
+        self.groups.get(key).map(|group| {
+            group.keys.iter().copied().collect()
+        }).map(|keys| {
+            PhonemesMut {
+                idx: 0,
+                keys,
+                rm: false,
+                source: Ok(self),
+            }
+        })
     }
 
     pub fn phoneme_ref_mut(&mut self, key: PhonemeKey) -> Option<PhonemeRefMut<'_>> {
@@ -518,22 +507,18 @@ impl Language {
             self.phoneme_rm.1 = false;
         }
 
-        match self.phonemes.get_mut(key) {
-            Some(phoneme) => {
-                self.phoneme_rm.0 = key;
+        self.phonemes.get_mut(key).map(|phoneme| {
+            self.phoneme_rm.0 = key;
 
-                let Phoneme { phoneme, grapheme } = phoneme;
-                let phoneme_ref_mut = PhonemeRefMut {
-                    key,
-                    phoneme,
-                    grapheme,
-                    rm: &mut self.phoneme_rm.1,
-                };
-
-                Some(phoneme_ref_mut)
-            },
-            None => None,
-        }
+            let Phoneme { phoneme, grapheme } = phoneme;
+            
+            PhonemeRefMut {
+                key,
+                phoneme,
+                grapheme,
+                rm: &mut self.phoneme_rm.1,
+            }
+        })
     }
 
     pub fn phonemes_mut_all(&mut self) -> PhonemesMut<'_> {
@@ -553,18 +538,13 @@ impl Language {
     }
 
     pub fn group_ref(&self, key: GroupKey) -> Option<GroupRef<'_>> {
-        match self.groups.get(key) {
-            Some(group) => {
-                let group_ref = GroupRef { 
-                    key, 
-                    name: &group.name, 
-                    phonemes: self.phonemes(key).unwrap(),
-                };
-
-                Some(group_ref)
-            },
-            None => None,
-        }
+        self.groups.get(key).map(|group| {
+            GroupRef { 
+                key, 
+                name: &group.name, 
+                phonemes: self.phonemes(key).unwrap(),
+            }
+        })
     }
 
     pub fn groups_mut(&mut self) -> GroupsMut<'_, vec::IntoIter<GroupKey>> {
@@ -584,25 +564,20 @@ impl Language {
 
         let Self { phonemes, groups, group_rm: _rm, .. } = self;
 
-        match groups.get_mut(key) {
-            Some(group) => {
-                let keys = group.keys.iter().copied().collect();
+        groups.get_mut(key).map(|group| {
+            let keys = group.keys.iter().copied().collect();
 
-                let group_ref_mut = GroupRefMut {
-                    key,
-                    name: &mut group.name,
-                    phonemes: PhonemesMut {
-                        idx: 0,
-                        keys,
-                        rm: false,
-                        source: Err(phonemes),
-                    },
-                    rm: _rm
-                };
-
-                Some(group_ref_mut)
-            },
-            None => None,
-        }
+            GroupRefMut {
+                key,
+                name: &mut group.name,
+                phonemes: PhonemesMut {
+                    idx: 0,
+                    keys,
+                    rm: false,
+                    source: Err(phonemes),
+                },
+                rm: _rm
+            }
+        })
     }
 }

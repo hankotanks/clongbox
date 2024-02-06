@@ -98,9 +98,7 @@ impl super::Pane for GroupPane {
         state: &mut crate::State, 
         ui: &mut egui::Ui
     ) {
-        let temp = egui::Layout::left_to_right(egui::Align::TOP);
-
-        layout::hungry_frame_with_layout(ui, temp, |ui| {
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
             egui::Frame::default()
                 .outer_margin(egui::Margin::same(0.))
                 .inner_margin(egui::Margin::symmetric(0., ui.spacing().window_margin.top))
@@ -118,6 +116,6 @@ impl super::Pane for GroupPane {
                 .show(ui, |ui: &mut egui::Ui| {
                     self.phoneme_panel(control, state, ui);
                 });
-        });
+        });   
     }
 }

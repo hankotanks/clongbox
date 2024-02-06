@@ -2,7 +2,7 @@ use std::{borrow, io, mem};
 
 use once_cell::unsync::OnceCell;
 
-use crate::{editors, sc};
+use crate::{editors, layout, sc};
 use crate::{Control, Pane, Tool, State};
 use crate::CONFIG;
 use crate::{panes, tools};
@@ -434,13 +434,14 @@ impl<const P: usize, const T: usize> App<P, T> where
                     .stroke(ui.visuals().window_stroke)
                     .inner_margin(ui.spacing().window_margin)
                     .show(ui, |ui| {
+                        let control = Control {
+                            tool_active,
+                            editors_active,
+                        };
 
-                    let control = Control {
-                        tool_active,
-                        editors_active,
-                    };
-
-                    pane.show(control, state, ui);
+                        layout::hungry_frame(ui, |ui| {
+                            pane.show(control, state, ui);
+                        });
                 });
             }
         });
