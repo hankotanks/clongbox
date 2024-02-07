@@ -47,7 +47,6 @@ impl super::Tool for GenTool {
                 unreachable!();
             };
             
-            // TODO: This allocation happens EVERY frame, should prevent
             String::from(content)
         });
 
@@ -59,7 +58,6 @@ impl super::Tool for GenTool {
             prob_dropoff,
             ops::RangeInclusive::new(0., 4.)
         ).custom_formatter(|n, _| {
-            // TODO: This is a duplicated helper function, move out of closure
             fn contains(start: f64, end: f64, n: f64) -> bool {
                 ops::RangeInclusive::new(start, end).contains(&n)
             }
@@ -76,7 +74,6 @@ impl super::Tool for GenTool {
                 unreachable!();
             };
 
-            // TODO: This allocation happens EVERY frame, should prevent
             String::from(content)
         });
 

@@ -1,5 +1,8 @@
 use std::{error, fmt, mem, ops, sync};
 
+use bimap::BiHashMap;
+use egui::ahash::HashMap;
+use once_cell::sync::Lazy;
 use slotmap::{SlotMap, SecondaryMap};
 
 use crate::{Phoneme, PhonemeKey, GroupKey, GroupName};
@@ -61,17 +64,17 @@ pub enum Field {
     EnvEnd { has_boundary: bool },
 }
 
-pub const ENV_START: mem::Discriminant<Field> = mem::discriminant(&Field::EnvStart { 
-    has_boundary: false 
-});
+pub const TARGET: mem::Discriminant<Field> = //
+    mem::discriminant(&Field::Target);
 
-pub const ENV_END: mem::Discriminant<Field> = mem::discriminant(&Field::EnvEnd { 
-    has_boundary: false 
-});
+pub const REPLACEMENT: mem::Discriminant<Field> = //
+    mem::discriminant(&Field::Replacement);
 
-pub const TARGET: mem::Discriminant<Field> = mem::discriminant(&Field::Target);
+pub const ENV_START: mem::Discriminant<Field> = //
+    mem::discriminant(&Field::EnvStart { has_boundary: false });
 
-pub const REPLACEMENT: mem::Discriminant<Field> = mem::discriminant(&Field::Replacement);
+pub const ENV_END: mem::Discriminant<Field> = //
+    mem::discriminant(&Field::EnvEnd { has_boundary: false });
 
 impl Default for Field {
     fn default() -> Self {
@@ -79,21 +82,23 @@ impl Default for Field {
     }
 }
 
-// TODO: I hate having to depend on this sort of structure
-// Need to rework
-fn field_disc_to_idx(disc: mem::Discriminant<Field>) -> usize {
-    if disc == TARGET {
-        0
-    } else if disc == REPLACEMENT {
-        1
-    } else if disc == ENV_START {
-        2
-    } else if disc == ENV_END {
-        3
-    } else {
-        unreachable!();
-    }
-}
+static FIELD_IDX: Lazy<bimap::BiHashMap<mem::Discriminant<Field>, usize>> = Lazy::new(|| {
+    bimap::BiHashMap::from_iter([
+        (TARGET, 0),
+        (REPLACEMENT, 1),
+        (ENV_START, 2),
+        (ENV_END, 3),
+    ])
+});
+
+static FIELD_DEFAULTS: Lazy<HashMap<mem::Discriminant<Field>, Field>> = Lazy::new(|| {
+    HashMap::from_iter([
+        (TARGET, Field::Target),
+        (REPLACEMENT, Field::Replacement),
+        (ENV_START, Field::EnvStart { has_boundary: false }),
+        (ENV_END, Field::EnvEnd { has_boundary: false }),
+    ])
+});
 
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -106,27 +111,30 @@ impl fmt::Display for Field {
     }
 }
 
-// TODO: Poor design
-impl From<Field> for usize {
-    fn from(value: Field) -> Self {
-        match value {
-            Field::Target => 0,
-            Field::Replacement => 1,
-            Field::EnvStart { .. } => 2,
-            Field::EnvEnd { .. } => 3,
-        }
+impl Into<mem::Discriminant<Field>> for &Field {
+    fn into(self) -> mem::Discriminant<Field> {
+        mem::discriminant(self)
     }
 }
 
-// TODO: Poor design
-impl From<usize> for Field {
-    fn from(value: usize) -> Self {
-        match value {
-            0 => Self::Target,
-            1 => Self::Replacement,
-            2 => Self::EnvStart { has_boundary: false },
-            3 => Self::EnvEnd { has_boundary: false },
-            _ => panic!(),
+impl Field {
+    fn into_usize(&self) -> usize {
+        match FIELD_IDX.get_by_left(&Into::<mem::Discriminant<Field>>::into(self)) {
+            Some(idx) => *idx,
+            None => unreachable!(),
+        }
+    }
+
+    fn from_usize(value: usize) -> Self {
+        let field = FIELD_IDX
+            .get_by_right(&value)
+            .map(|field_disc| {
+                FIELD_DEFAULTS.get(field_disc).unwrap()
+            });
+
+        match field {
+            Some(field) => field.clone(),
+            None => panic!(),
         }
     }
 }
@@ -417,13 +425,13 @@ pub struct SoundChange {
 
 impl SoundChange {
     pub fn field(&self, field: mem::Discriminant<Field>) -> (Field, &[Element]) {
-        let idx = field_disc_to_idx(field);
+        let idx = *FIELD_IDX.get_by_left(&field).unwrap();
 
         (self.fields[idx], self.elems[idx].as_slice())
     }
 
     pub fn field_mut(&mut self, field: mem::Discriminant<Field>) -> (&mut Field, &mut Vec<Element>) {
-        let idx = field_disc_to_idx(field);
+        let idx = *FIELD_IDX.get_by_left(&field).unwrap();
 
         (&mut self.fields[idx], &mut self.elems[idx])
     }
@@ -439,24 +447,6 @@ impl SoundChange {
         }
         
         false
-    }
-}
-
-impl ops::Index<mem::Discriminant<Field>> for SoundChange {
-    type Output = Vec<Element>;
-
-    fn index(&self, index: mem::Discriminant<Field>) -> &Self::Output {
-        let index = field_disc_to_idx(index);
-
-        &self.elems[index]
-    }
-}
-
-impl ops::IndexMut<mem::Discriminant<Field>> for SoundChange {
-    fn index_mut(&mut self, index: mem::Discriminant<Field>) -> &mut Self::Output {
-        let index = field_disc_to_idx(index);
-
-        &mut self.elems[index]
     }
 }
 
@@ -536,8 +526,12 @@ impl From<[Vec<Element>; 4]> for SoundChange {
         sc.fields = [
             Field::Target,
             Field::Replacement,
-            Field::EnvStart { has_boundary: has_boundary(&sc[ENV_START]) },
-            Field::EnvEnd { has_boundary: has_boundary(&sc[ENV_END]) },
+            Field::EnvStart { has_boundary: has_boundary({
+                &sc.elems[*FIELD_IDX.get_by_left(&ENV_START).unwrap()]
+            }) },
+            Field::EnvEnd { has_boundary: has_boundary({
+                &sc.elems[*FIELD_IDX.get_by_left(&ENV_END).unwrap()]
+            }) },
         ];
 
         sc
@@ -565,7 +559,7 @@ impl SoundChange {
             for idx in 0..4 {
                 let elements = &mut sc[idx];
 
-                let result = Field::from(idx).parse(
+                let result = Field::from_usize(idx).parse(
                     language,
                     rep_phonemes,
                     rep_phoneme_usages,
@@ -622,7 +616,7 @@ pub struct ScRefMut<'a> {
     pub language: &'a mut Language,
 }
 
-// TODO: This shadows the SoundChange method of the same name
+// NOTE: This shadows the SoundChange method of the same name
 impl<'a> ScRefMut<'a> {
     pub fn field_mut(&mut self, field: mem::Discriminant<Field>) -> (&mut Field, &mut Vec<Element>) {
         self.sc.field_mut(field)

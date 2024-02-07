@@ -284,7 +284,6 @@ impl super::Editor for PhonemeEditor {
         };
 
         if let Some(phoneme_key) = rm {
-            // TODO: One day, this will have to deal with the `rep_phonemes`
             state.language.phoneme_remove(phoneme_key);
 
             let _ = mem::take(self);

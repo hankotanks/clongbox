@@ -50,7 +50,7 @@ fn show_sc_element_inner(
     elem: sc::ScElemRefMut<'_>, 
     focus: &mut Focus,
     target: ScTarget<'_>,
-) {
+) -> egui::Response {
     let sc::ScElemRefMut {
         elem,
         rep_phonemes,
@@ -73,15 +73,15 @@ fn show_sc_element_inner(
 
             let content = fonts::ipa_rt(format!("{}", content));
             
-            ui.label(content);
+            ui.label(content)
         },
         sc::Element::Group(key) => {
             let content = fonts::ipa_rt(format!("{}", language[*key].name));
-            
-            ui.label(content);
+        
+            ui.label(content)
         },
         sc::Element::Boundary => {
-            ui.label(fonts::ipa_rt("#"));
+            ui.label(fonts::ipa_rt("#"))
         },
         sc::Element::Any(elems) => {
             ui.label(fonts::ipa_rt("["));
@@ -125,7 +125,9 @@ fn show_sc_element_inner(
 
             show_sc_element_addition(ui, elems, focus, target);
 
-            ui.label(fonts::ipa_rt("]"));
+            // NOTE: The response returned from the `sc::Element::Any` branch
+            // isn't representative of all of its UI components
+            ui.label(fonts::ipa_rt("]"))
         },
         sc::Element::Invalid => {
             let content = fonts::ipa_rt("\u{2205}")
@@ -147,11 +149,14 @@ fn show_sc_element_inner(
                 focus.clear();
             } 
 
-            // TODO: Right-clicking should delete the invalid element outright
             if focus.get_id() == id {
-                if ui.toggle_value(&mut true, content).clicked() {
+                let response = ui.toggle_value(&mut true, content);
+
+                if response.clicked() {
                     focus.clear();
                 }
+
+                response
             } else {
                 let response = ui.button(content);
 
@@ -166,9 +171,8 @@ fn show_sc_element_inner(
                     focus.set(id, target);
                 }
 
-                status::set_on_hover(&response, "Click to replace this deleted sound change element. Right-click to erase")
-            };
-            
+                response
+            }
         },
     }
 }
@@ -186,34 +190,53 @@ fn show_sc_element(
     };
 
     let response = egui::Frame::default().show(ui, |ui| {
-        show_sc_element_inner(ui, elem, focus, target);
-    }).response;
-
-    let rect = response.rect.expand2({
-        egui::Vec2 { x: ui.spacing().button_padding.x, y: 0. }
+        show_sc_element_inner(ui, elem, focus, target)
     });
 
-    let draw_border = || {
-        if !invalid {
-            ui.painter().rect_stroke(rect, CONFIG.selection_rounding, ui.visuals().window_stroke);
-        }
-    };
+    let egui::InnerResponse::<egui::Response> { 
+        response, 
+        inner, .. 
+    } = response;
 
-    if response.hovered() {
-        draw_border();
-    }
-    
     let mut action = ScElemAction::None;
 
-    response.context_menu(|ui| {
-        draw_border();
+    if invalid {
+        status::set_on_hover(&inner, "Click to replace. Right-click for options");
 
-        if ui.button("Remove").clicked() {
-            action = ScElemAction::Remove;
+        inner.context_menu(|ui| {
+            if ui.button("Remove").clicked() {
+                action = ScElemAction::Remove;
+            }
+        });
+    } else {
+        status::set_on_hover(&response, "Right-click for options");
 
-            ui.close_menu();
+        let rect = response.rect.expand2({
+            egui::Vec2 { x: ui.spacing().button_padding.x, y: 0. }
+        });
+
+        let draw_border = || {
+            ui.painter().rect_stroke(
+                rect, 
+                CONFIG.selection_rounding, 
+                ui.visuals().window_stroke
+            );
+        };
+    
+        if response.hovered() {
+            draw_border();
         }
-    });
+        
+        response.context_menu(|ui| {
+            draw_border();
+    
+            if ui.button("Remove").clicked() {
+                action = ScElemAction::Remove;
+    
+                ui.close_menu();
+            }
+        });
+    }
 
     action
 }
@@ -278,7 +301,12 @@ pub fn show_sc_field(
     disc: mem::Discriminant<sc::Field>,
     focus: &mut Focus,
 ) {
-    let elements_len = sound_change.sc[disc].len();
+    let elements_len = {
+        let (_, elements) = sound_change.sc.field(disc);
+
+        elements.len()
+    };
+    
     let elements_is_empty = elements_len == 0;
 
     let (mut head, mut tail, nested) = (true, false, false);
