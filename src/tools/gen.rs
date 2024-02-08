@@ -1,4 +1,6 @@
-use std::ops;
+use std::{mem, ops};
+
+use crate::{app::fonts, types::syllable::SyllabicElement, Focus, FocusBuffer, FocusTarget, Syllable, SyllableRefMut};
 
 pub struct GenTool {
     prob_mono: f64,
@@ -14,10 +16,64 @@ impl Default for GenTool {
     }
 }
 
+impl GenTool {
+    fn syllable_selector(syllable: SyllableRefMut<'_>, ui: &mut egui::Ui, focus: &mut Focus) {
+        let id = ui.id();
+
+        let SyllableRefMut { syllable, language } = syllable;
+
+        let show_invalid = |ui: &mut egui::Ui| {
+            ui.label("\u{2205}");
+        };
+
+        ui.horizontal(|ui| {
+            for element in syllable.elems.iter_mut() {
+                match element {
+                    SyllabicElement::Phoneme(_) => todo!(),
+                    SyllabicElement::Group(key) => {
+                        match language.group_ref(*key) {
+                            Some(group) => {
+                                let content = format!("{}", group.name);
+                                let content = fonts::ipa_rt(content);
+                                ui.label(content);
+                            },
+                            None => {
+                                let _ = mem::replace(element, SyllabicElement::Invalid);
+    
+                                (show_invalid)(ui);
+                            },
+                        }
+                    },
+                    SyllabicElement::Invalid => (show_invalid)(ui),
+                }
+            }
+
+            if let Some(buffer) = focus.take(id) {
+                if let FocusBuffer::Group(key) = buffer {
+                    syllable.elems.push(SyllabicElement::Group(key));
+                }
+            }
+    
+            if focus.get_id() == id {
+                if ui.toggle_value(&mut true, "+").clicked() {
+                    focus.clear();
+                }
+            } else {
+                if ui.button("+").clicked() {
+                    focus.set(id, FocusTarget::SyllableGroup);
+                }
+            }
+        });
+        
+
+        
+    }
+}
+
 impl super::Tool for GenTool {
     fn name(&self) -> &'static str { "Word Generation" }
 
-    fn show(&mut self, _state: &mut crate::State, ui: &mut egui::Ui) {
+    fn show(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
         let Self {
             prob_mono,
             prob_dropoff, ..
@@ -83,6 +139,25 @@ impl super::Tool for GenTool {
             ui.add(prob_dropoff_slider);
         });
 
-        ui.separator();  
+        ui.separator();
+
+        if ui.button("Add").clicked() {
+            state.phonotactics.push(Syllable::default());
+        }
+
+        ui.separator();
+
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            let crate::State { phonotactics, language, focus, .. } = state;
+
+            for syllable in phonotactics.iter_mut() {
+                let syllable = SyllableRefMut {
+                    syllable,
+                    language,
+                };
+        
+                Self::syllable_selector(syllable, ui, focus);
+            }
+        });
     }
 }

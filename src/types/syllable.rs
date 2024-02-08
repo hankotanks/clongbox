@@ -1,18 +1,18 @@
-use std::sync;
-
 use crate::{language::Language, GroupKey, PhonemeKey};
 
 #[derive(Clone, Copy)]
 pub enum SyllabicElement {
     Phoneme(PhonemeKey),
     Group(GroupKey),
+    Invalid,
 }
 
-pub struct Syllable(Vec<SyllabicElement>);
+#[derive(Default)]
+pub struct Syllable {
+    pub elems: Vec<SyllabicElement>
+}
 
-pub struct Phonotactics(Vec<Syllable>);
-
-pub struct GenConfig {
-    mono: f32,
-    dropoff: f32,
+pub struct SyllableRefMut<'a> {
+    pub syllable: &'a mut Syllable,
+    pub language: &'a Language,
 }

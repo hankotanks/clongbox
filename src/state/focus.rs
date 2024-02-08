@@ -19,6 +19,8 @@ pub enum FocusTarget {
     PhonemeEditorSelect,
 
     GroupEditorSelect,
+
+    SyllableGroup,
 }
 
 impl FocusTarget {
@@ -64,6 +66,9 @@ impl FocusTarget {
             FocusTarget::GroupEditorSelect //
                 if matches!(buffer, FocusBuffer::Group(_)) => true,
             FocusTarget::GroupEditorSelect => false,
+            FocusTarget::SyllableGroup //
+                if let FocusBuffer::Group(_) = buffer => true,
+            FocusTarget::SyllableGroup => false,
         }
     }
 }
@@ -190,6 +195,11 @@ impl Focus {
                                 (FocusTarget::GroupEditorSelect, FocusBuffer::Group(_)) => unreachable!(),
                                 (FocusTarget::GroupEditorSelect, FocusBuffer::Any) => unreachable!(),
                                 (FocusTarget::GroupEditorSelect, FocusBuffer::Boundary) => unreachable!(),
+                                (FocusTarget::SyllableGroup, FocusBuffer::Phoneme { .. }) => unreachable!(),
+                                (FocusTarget::SyllableGroup, FocusBuffer::Group(_)) => //
+                                    "add this group to the current syllable",
+                                (FocusTarget::SyllableGroup, FocusBuffer::Any) => unreachable!(),
+                                (FocusTarget::SyllableGroup, FocusBuffer::Boundary) => unreachable!(),
                         });
 
                         status::set_on_hover(&response, status_message);

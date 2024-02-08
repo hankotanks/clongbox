@@ -1,6 +1,5 @@
-use std::{error, fmt, mem, ops, sync};
+use std::{error, fmt, mem, sync};
 
-use bimap::BiHashMap;
 use egui::ahash::HashMap;
 use once_cell::sync::Lazy;
 use slotmap::{SlotMap, SecondaryMap};
@@ -118,6 +117,7 @@ impl Into<mem::Discriminant<Field>> for &Field {
 }
 
 impl Field {
+    #[allow(dead_code)]
     fn into_usize(&self) -> usize {
         match FIELD_IDX.get_by_left(&Into::<mem::Discriminant<Field>>::into(self)) {
             Some(idx) => *idx,
