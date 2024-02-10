@@ -110,6 +110,7 @@ impl fmt::Display for Field {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<mem::Discriminant<Field>> for &Field {
     fn into(self) -> mem::Discriminant<Field> {
         mem::discriminant(self)
@@ -118,8 +119,8 @@ impl Into<mem::Discriminant<Field>> for &Field {
 
 impl Field {
     #[allow(dead_code)]
-    fn into_usize(&self) -> usize {
-        match FIELD_IDX.get_by_left(&Into::<mem::Discriminant<Field>>::into(self)) {
+    fn into_usize(self) -> usize {
+        match FIELD_IDX.get_by_left(&Into::<mem::Discriminant<Field>>::into(&self)) {
             Some(idx) => *idx,
             None => unreachable!(),
         }
@@ -133,7 +134,7 @@ impl Field {
             });
 
         match field {
-            Some(field) => field.clone(),
+            Some(field) => *field,
             None => panic!(),
         }
     }

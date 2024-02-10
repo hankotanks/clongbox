@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::{Selection, Phoneme, PhonemeSrc, GroupKey, GroupName, FocusTarget, status};
+use crate::{status, FocusTarget, GroupKey, GroupName, Phoneme, PhonemeSrc, Selection, CONFIG};
 use crate::{Focus, FocusBuffer};
 use crate::PhonemeKey;
 use crate::language::{PhonemeRefMut, GroupsMut, GroupRefMut};
@@ -246,4 +246,105 @@ pub fn group_selection_list(
                 });
             });
         }); });
+}
+
+#[derive(Default)]
+pub struct FauxButtonResponse {
+    // NOTE: This is a struct for clarity, nothing else
+    pub clicked: bool,
+}
+
+fn faux_button_size(ui: &egui::Ui) -> egui::Vec2 {
+    egui::Vec2::splat(ui.text_style_height(&egui::TextStyle::Small))
+}
+
+fn faux_button(rect: egui::Rect, ui: &egui::Ui) -> FauxButtonResponse {
+    // TODO: These colors should not be hardcoded, 
+    // but pulled from button styling defaults
+    ui.painter().rect(
+        rect, 
+        CONFIG.selection_rounding,
+        egui::Color32::LIGHT_GRAY,
+        egui::Stroke {
+            width: ui.visuals().window_stroke.width,
+            color: egui::Color32::DARK_GRAY,
+        },
+    );
+
+    let width = rect.width();
+    let width_offset = (width - width * 0.55) * 0.5;
+
+    ui.painter().line_segment(
+        [
+            rect.left_center() + egui::Vec2::new(width_offset, 0.), 
+            rect.right_center() - egui::Vec2::new(width_offset, 0.),
+            ], 
+        egui::Stroke { width: 1., color: egui::Color32::BLACK, }
+    );
+
+    let mut response = FauxButtonResponse::default();
+
+    ui.ctx().input(|input| {
+        for event in input.events.iter() {
+            if let egui::Event::PointerButton {
+                pos, 
+                button: egui::PointerButton::Primary, 
+                pressed: false, .. 
+            } = event {
+                if rect.contains(*pos) {
+                    response.clicked = true;
+                }
+            }
+        }
+    });
+
+    response
+}
+
+fn faux_button_small(center: egui::Pos2, ui: &egui::Ui) -> FauxButtonResponse {
+    let rect = egui::Rect::from_center_size(
+        center, 
+        faux_button_size(ui),
+    );
+
+    faux_button(rect, ui)
+}
+
+pub fn deletion_overlay(response: &egui::Response, ui: &egui::Ui) -> FauxButtonResponse {
+    let response = response.interact(egui::Sense::hover());
+
+    if response.hovered() {
+        faux_button_small(response.rect.center(), ui)
+    } else {
+        FauxButtonResponse::default()
+    }
+}
+
+pub fn deletion_overlay_corner(response: &egui::Response, ui: &egui::Ui) -> FauxButtonResponse {
+    let response = response.interact(egui::Sense::hover());
+
+    if response.hovered() {
+        let rect = response.rect.expand2({
+            egui::Vec2::new(ui.spacing().button_padding.x, 0.)
+        });
+
+        let faux_button_size = faux_button_size(ui) * 0.5;
+
+        let offset = egui::Vec2 {
+            x: faux_button_size.x * -1.,
+            y: faux_button_size.y,
+        };
+
+        // NOTE: This compensates for the width of the stroke
+        let offset = offset + egui::Vec2 {
+            x: 0.,
+            y: ui.visuals().window_stroke.width * -1.,
+        };
+
+        let center = rect.right_top() + offset;
+
+        faux_button_small(center, ui)
+    } else {
+        FauxButtonResponse::default()
+    }
 }

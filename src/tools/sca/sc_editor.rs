@@ -2,7 +2,7 @@ use std::mem;
 
 use once_cell::sync::OnceCell;
 
-use crate::{status, Focus, FocusBuffer, FocusTarget};
+use crate::{widgets, Focus, FocusBuffer, FocusTarget};
 use crate::app::fonts;
 use crate::sc;
 use crate::CONFIG;
@@ -141,7 +141,7 @@ fn show_sc_element_inner(
                 invalid: true,
             };
 
-            let id = ui.id().with(&target);
+            let id = ui.id().with(target);
 
             if let Some(buffer) = focus.take(id) {
                 let _ = mem::replace(elem, focus_buffer_to_element(buffer, field));
@@ -189,6 +189,12 @@ fn show_sc_element(
         matches!(elem, sc::Element::Invalid)
     };
 
+    let any = {
+        let sc::ScElemRefMut { elem, .. } = &elem;
+
+        matches!(elem, sc::Element::Any(_))
+    };
+
     let response = egui::Frame::default().show(ui, |ui| {
         show_sc_element_inner(ui, elem, focus, target)
     });
@@ -201,41 +207,35 @@ fn show_sc_element(
     let mut action = ScElemAction::None;
 
     if invalid {
-        status::set_on_hover(&inner, "Click to replace. Right-click for options");
+        let widgets::FauxButtonResponse { 
+            clicked, ..
+        } = widgets::deletion_overlay_corner(&inner, ui);
 
-        inner.context_menu(|ui| {
-            if ui.button("Remove").clicked() {
-                action = ScElemAction::Remove;
-            }
-        });
+        if clicked {
+            focus.clear();
+
+            action = ScElemAction::Remove;
+        }
     } else {
-        status::set_on_hover(&response, "Right-click for options");
-
         let rect = response.rect.expand2({
             egui::Vec2 { x: ui.spacing().button_padding.x, y: 0. }
         });
-
-        let draw_border = || {
+    
+        if response.hovered() && any {
             ui.painter().rect_stroke(
-                rect, 
+                rect,
                 CONFIG.selection_rounding, 
                 ui.visuals().window_stroke
             );
-        };
-    
-        if response.hovered() {
-            draw_border();
         }
-        
-        response.context_menu(|ui| {
-            draw_border();
-    
-            if ui.button("Remove").clicked() {
+
+        if any {
+            if widgets::deletion_overlay_corner(&response, ui).clicked {
                 action = ScElemAction::Remove;
-    
-                ui.close_menu();
             }
-        });
+        } else if widgets::deletion_overlay(&response, ui).clicked {
+            action = ScElemAction::Remove;
+        }
     }
 
     action

@@ -48,20 +48,16 @@ impl GenTool {
                 }
             }
 
-            if let Some(buffer) = focus.take(id) {
-                if let FocusBuffer::Group(key) = buffer {
-                    syllable.elems.push(SyllabicElement::Group(key));
-                }
+            if let Some(FocusBuffer::Group(key)) = focus.take(id) {
+                syllable.elems.push(SyllabicElement::Group(key));
             }
     
             if focus.get_id() == id {
                 if ui.toggle_value(&mut true, "+").clicked() {
                     focus.clear();
                 }
-            } else {
-                if ui.button("+").clicked() {
-                    focus.set(id, FocusTarget::SyllableGroup);
-                }
+            } else if ui.button("+").clicked() {
+                focus.set(id, FocusTarget::SyllableGroup);
             }
         });
         
