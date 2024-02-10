@@ -84,6 +84,9 @@ pub fn phoneme_editor(
                     };
                 }
 
+                // TODO: Don't like this implementation of the status message,
+                // probably should add an explanatory label above the panel instead.
+                // To avoid the cluttered status message
                 let status_message = format!("{}Right-click to edit in place. Clearing the name deletes the phoneme", match selection {
                     Selection::Single(_) | Selection::Multiple(_) => //
                         "Click to select this phoneme. ",
@@ -174,6 +177,9 @@ fn group_editor_inner(
                     };
                 }
 
+                // TODO: Don't like this implementation of the status message,
+                // probably should add an explanatory label above the panel instead.
+                // To avoid the cluttered status message
                 let status_message = format!("{}Right-click to edit group name. Clearing the name deletes the group", match selection {
                     Selection::Single(_) | Selection::Multiple(_) => //
                         "Click to select. ",

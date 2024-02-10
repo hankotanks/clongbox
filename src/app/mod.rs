@@ -1,5 +1,6 @@
 use std::{borrow, io, mem};
 
+use once_cell::sync::Lazy;
 use once_cell::unsync::OnceCell;
 
 use crate::{editors, layout, sc};
@@ -215,9 +216,37 @@ impl<const P: usize, const T: usize> eframe::App for App<P, T> where
 
                 frame.inner_margin.top += ui.spacing().item_spacing.y;
                 frame.show(ui, |ui| {
-                    if let Some(status) = status::get() {
-                        ui.label(format!("{}", status));
-                    }
+                    egui_extras::StripBuilder::new(ui)
+                        .sizes(egui_extras::Size::remainder(), 2)
+                        .horizontal(|mut strip| {
+                            strip.cell(|ui| {
+                                if let Some(status) = status::get() {
+                                    ui.label(format!("{}", status));
+                                }
+                            });
+
+                            strip.cell(|ui| {
+                                if let Self::Ready { state, .. } = self {
+                                    let State { focus, .. } = state;
+
+                                    if let Some(status) = focus.get_focus_status() {
+                                        static LAYOUT: Lazy<egui::Layout> = Lazy::new(|| {
+                                            egui::Layout::right_to_left(egui::Align::TOP)
+                                        });
+
+                                        ui.with_layout(*LAYOUT, |ui| {
+                                            let status = egui::RichText::new(status)
+                                                .italics()
+                                                .color(ui.visuals().weak_text_color());
+
+                                            ui.label(status);
+                                        });
+                                        
+                                    }
+                                }
+                            });
+                        });
+                    
                 });
             }); 
         });

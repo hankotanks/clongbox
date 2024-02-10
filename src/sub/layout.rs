@@ -1,4 +1,6 @@
-use once_cell::sync::Lazy;
+use std::fmt;
+
+use once_cell::{sync::Lazy, unsync::OnceCell};
 
 pub fn hungry_frame<R>(
     ui: &mut egui::Ui, 
@@ -124,4 +126,23 @@ pub fn fixed_height_frame<R>(
                 (add_contents)(ui);
             });
         });
+}
+
+// TODO: This doesn't work yet (for unknown reasons, possible egui bug)
+// When working, should wrap all `egui::Ui::toggle_value` elements that
+// are the origin of the current selection action
+#[allow(dead_code)]
+pub fn selection_origin<R: fmt::Debug>(
+    ui: &mut egui::Ui, 
+    add_contents: impl FnOnce(&mut egui::Ui) -> R
+) -> R {
+    let mut response = OnceCell::default();
+
+    ui.scope(|ui| {
+        ui.visuals_mut().widgets.hovered.weak_bg_fill = egui::Color32::RED;
+
+        response.set((add_contents)(ui)).unwrap();
+    });
+
+    response.take().unwrap()
 }

@@ -2,7 +2,7 @@ mod sc_editor;
 
 use once_cell::sync::{Lazy, OnceCell};
 
-use crate::{layout, sc};
+use crate::{layout, sc, FocusTarget};
 use crate::FocusBuffer;
 use crate::app::fonts;
 
@@ -22,7 +22,8 @@ impl ScaTool {
         let crate::State { 
             language, 
             rep_phonemes, 
-            sound_changes, .. 
+            sound_changes, 
+            focus, .. 
         } = state;
     
         let content = sound_changes[idx].as_str(language, rep_phonemes);
@@ -92,6 +93,10 @@ impl ScaTool {
             _ => {
                 if ui.toggle_value(&mut false, content).clicked() {
                     self.active = Some(idx);
+
+                    if matches!(focus.get_target(), Some(FocusTarget::Sc { .. })) {
+                        focus.clear();
+                    }
                 }
             },
         };

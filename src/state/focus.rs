@@ -1,7 +1,10 @@
 use std::collections::BTreeSet;
 use std::mem;
 
-use crate::{sc, CONFIG, status};
+use once_cell::sync::Lazy;
+use slotmap::Key;
+
+use crate::{sc, CONFIG};
 use crate::{GroupKey, PhonemeKey, PhonemeSrc};
 
 pub enum FocusTarget {
@@ -20,6 +23,8 @@ pub enum FocusTarget {
 
     GroupEditorSelect,
 
+    // TODO: Temporary implementation of syllable constructor selection
+    // In the future, this needs to support other things like Phonemes
     SyllableGroup,
 }
 
@@ -82,6 +87,38 @@ pub enum FocusBuffer {
     Boundary,
 }
 
+// TODO: I don't like this solution because it has to be maintained 
+// if new `FocusBuffer` variants are added
+// This is not a problem for `FocusBuffer::as_str_plural` because
+// it will fail to compile upon addition
+static FOCUS_BUFFER_TESTS: Lazy<[FocusBuffer; 5]> = Lazy::new(|| [
+    FocusBuffer::Phoneme { 
+        key: PhonemeKey::null(), 
+        src: PhonemeSrc::Language 
+    },
+    FocusBuffer::Phoneme { 
+        key: PhonemeKey::null(), 
+        src: PhonemeSrc::Rep 
+    },
+    FocusBuffer::Group(GroupKey::null()),
+    FocusBuffer::Any,
+    FocusBuffer::Boundary,
+]);
+
+impl FocusBuffer {
+    // NOTE: This is not implemented as `fmt::Display` b/c it should be obvious that it's plural
+    // Not for general use, just for the focus status message
+    fn as_str_plural(&self) -> &'static str {
+        match self {
+            FocusBuffer::Phoneme { src: PhonemeSrc::Language, .. } => "phonemes",
+            FocusBuffer::Phoneme { src: PhonemeSrc::Rep, .. } => "new phonemes",
+            FocusBuffer::Group(_) => "groups",
+            FocusBuffer::Any => "nonce categories [ ]",
+            FocusBuffer::Boundary => "word boundaries",
+        }
+    }
+}
+
 pub enum Focus {
     Active { 
         id: egui::Id, 
@@ -128,6 +165,14 @@ impl Focus {
         }
     }
 
+    pub fn get_target(&self) -> Option<&FocusTarget> {
+        if let Self::Active { target, .. } = self {
+            Some(target)
+        } else {
+            None
+        }
+    }
+
     pub fn clear(&mut self) {
         let _ = mem::take(self);
     }
@@ -169,40 +214,6 @@ impl Focus {
                             CONFIG.selection_rounding, 
                             CONFIG.selection_stroke
                         );
-
-                        let status_message = format!("Click to {}", 
-                            match (target, buffer_temp) {
-                                (FocusTarget::Sc { .. }, FocusBuffer::Phoneme { .. }) => //
-                                    "add this phoneme to the selected sound change",
-                                (FocusTarget::Sc { .. }, FocusBuffer::Group(_)) => //
-                                    "add this group to the selected sound change",
-                                (FocusTarget::Sc { .. }, FocusBuffer::Any) => //
-                                    "add a pair of brackets [ ] to the selected sound change",
-                                (FocusTarget::Sc { .. }, FocusBuffer::Boundary) => //
-                                    "add a word boundary # to the selected sound change",
-                                (FocusTarget::PhonemeEditorGroups { .. }, FocusBuffer::Phoneme { .. }) => unreachable!(),
-                                (FocusTarget::PhonemeEditorGroups { .. }, FocusBuffer::Group(_)) => //
-                                    "insert the selected phoneme into this group",
-                                (FocusTarget::PhonemeEditorGroups { .. }, FocusBuffer::Any) => unreachable!(),
-                                (FocusTarget::PhonemeEditorGroups { .. }, FocusBuffer::Boundary) => unreachable!(),
-                                (FocusTarget::PhonemeEditorSelect, FocusBuffer::Phoneme { .. }) => //
-                                    "edit this phoneme",
-                                (FocusTarget::PhonemeEditorSelect, FocusBuffer::Group(_)) => unreachable!(),
-                                (FocusTarget::PhonemeEditorSelect, FocusBuffer::Any) => unreachable!(),
-                                (FocusTarget::PhonemeEditorSelect, FocusBuffer::Boundary) => unreachable!(),
-                                (FocusTarget::GroupEditorSelect, FocusBuffer::Phoneme { .. }) => //
-                                    "edit this group",
-                                (FocusTarget::GroupEditorSelect, FocusBuffer::Group(_)) => unreachable!(),
-                                (FocusTarget::GroupEditorSelect, FocusBuffer::Any) => unreachable!(),
-                                (FocusTarget::GroupEditorSelect, FocusBuffer::Boundary) => unreachable!(),
-                                (FocusTarget::SyllableGroup, FocusBuffer::Phoneme { .. }) => unreachable!(),
-                                (FocusTarget::SyllableGroup, FocusBuffer::Group(_)) => //
-                                    "add this group to the current syllable",
-                                (FocusTarget::SyllableGroup, FocusBuffer::Any) => unreachable!(),
-                                (FocusTarget::SyllableGroup, FocusBuffer::Boundary) => unreachable!(),
-                        });
-
-                        status::set_on_hover(&response, status_message);
                     }
         
                     if response.interact(egui::Sense::click()).clicked() {
@@ -215,6 +226,41 @@ impl Focus {
                 }
             },
             Focus::None => Some(response),
+        }
+    }
+
+    pub fn get_focus_status(&self) -> Option<String> {
+        match self {
+            Focus::Active { target, .. } => {
+                let mut valid = BTreeSet::default();
+
+                for buffer in FOCUS_BUFFER_TESTS.iter() {
+                    if target.is_valid(buffer) {
+                        valid.insert(buffer.as_str_plural());
+                    }
+                }
+
+                let len = valid.len();
+
+                let mut status = String::from("Selecting ");
+
+                for (idx, valid_buffer) in valid.into_iter().enumerate() {
+                    let content = if idx == 0 {
+                        String::from(valid_buffer)
+                    } else if idx == len - 1 {
+                        format!(" & {}.", valid_buffer)
+                    } else {
+                        format!(", {}", valid_buffer)
+                    };
+
+                    status.push_str(content.as_str());
+                }
+
+                status.push_str("Press ESC to cancel");
+
+                Some(status)
+            },
+            Focus::None => None,
         }
     }
 }
