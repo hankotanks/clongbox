@@ -24,7 +24,7 @@ pub use types::group::{Group, GroupKey, GroupName};
 pub use types::phoneme::{Phoneme, PhonemeKey, PhonemeSrc};
 pub use types::sc;
 pub use types::selection::Selection;
-pub use types::syllable::{Syllable, SyllableRefMut};
+pub use types::syllable::{Syllable, SyllableRefMut, SyllabicElement};
 
 mod panes;
 pub use panes::{Pane, PaneId};
