@@ -3,11 +3,12 @@ use std::{mem, ops};
 use once_cell::sync::{Lazy, OnceCell};
 
 use crate::app::fonts;
-use crate::{Focus, FocusBuffer, FocusTarget};
+use crate::{layout, widgets, Focus, FocusBuffer, FocusTarget};
 use crate::{Syllable, SyllableRefMut, SyllabicElement};
 use crate::CONFIG;
 
 pub struct GenTool {
+    syllable_temp: Syllable,
     prob_mono: f64,
     prob_dropoff: f64,
 }
@@ -15,6 +16,7 @@ pub struct GenTool {
 impl Default for GenTool {
     fn default() -> Self {
         Self {
+            syllable_temp: Syllable::default(),
             prob_mono: 2.5,
             prob_dropoff: 2.5,
         }
@@ -22,15 +24,21 @@ impl Default for GenTool {
 }
 
 impl GenTool {
-    fn syllable_selector_inner(syllable: SyllableRefMut<'_>, ui: &mut egui::Ui, focus: &mut Focus, id: egui::Id) {
-        let SyllableRefMut { syllable, language } = syllable;
+    fn syllable_selector_elems(
+        syllable: SyllableRefMut<'_>, 
+        ui: &mut egui::Ui, 
+        focus: &mut Focus, id: egui::Id
+    ) {
+        let SyllableRefMut { syllable, language, .. } = syllable;
 
         let show_invalid = |ui: &mut egui::Ui| {
-            ui.label("\u{2205}");
+            ui.label("\u{2205}")
         };
+
+        let mut element_to_delete = None;
         
-        for element in syllable.elems.iter_mut() {
-            match element {
+        for (idx, element) in syllable.elems.iter_mut().enumerate() {
+            let response = match element {
                 SyllabicElement::Phoneme(_) => todo!(),
                 SyllabicElement::Group(key) => {
                     match language.group_ref(*key) {
@@ -38,17 +46,25 @@ impl GenTool {
                             let content = format!("{}", group.name);
                             let content = fonts::ipa_rt(content);
 
-                            ui.label(content);
+                            ui.label(content)
                         },
                         None => {
                             let _ = mem::replace(element, SyllabicElement::Invalid);
 
-                            (show_invalid)(ui);
+                            (show_invalid)(ui)
                         },
                     }
                 },
                 SyllabicElement::Invalid => (show_invalid)(ui),
+            };
+
+            if widgets::deletion_overlay(&response, ui).clicked {
+                let _ = element_to_delete.insert(idx);
             }
+        }
+
+        if let Some(idx) = element_to_delete {
+            syllable.elems.remove(idx);
         }
 
         if let Some(buffer) = focus.take(id) {
@@ -58,15 +74,19 @@ impl GenTool {
         }
     }
 
-    fn syllable_selector(syllable: SyllableRefMut<'_>, ui: &mut egui::Ui, focus: &mut Focus) {
+    fn syllable_selector(
+        syllable: SyllableRefMut<'_>, 
+        ui: &mut egui::Ui, 
+        focus: &mut Focus, activate: bool
+    ) {
         let is_empty = syllable.syllable.elems.is_empty();
 
         let rect_full = ui.available_rect_before_wrap();
 
         let response = egui::Frame::default().show(ui, |ui| {
-            let id = ui.id();
+            let id = ui.id().with(syllable.idx);
 
-            Self::syllable_selector_inner(syllable, ui, focus, id);
+            Self::syllable_selector_elems(syllable, ui, focus, id);
 
             id
         });
@@ -88,11 +108,11 @@ impl GenTool {
             None => response.hovered(),
         };
 
-        let is_focused = focus.get_id() == inner;
-
-        if is_empty {
-            ui.label("NEW");
+        if activate {
+            focus.set(inner, FocusTarget::SyllableGroup);
         }
+
+        let is_focused = activate || focus.get_id() == inner;
 
         if hovered || is_empty || is_focused {
             let temp = if is_focused {
@@ -199,15 +219,25 @@ impl super::Tool for GenTool {
 
         ui.separator();
 
-        if ui.button("Add").clicked() {
-            state.phonotactics.push(Syllable::default());
+        let crate::State { 
+            phonotactics, 
+            language, 
+            focus, .. 
+        } = state;
+
+        let activate = !self.syllable_temp.is_empty();
+        
+        if activate {
+            let temp = mem::take(&mut self.syllable_temp);
+
+            phonotactics.push(temp);
         }
 
-        ui.separator();
-
+        //
         static PADDING: OnceCell<f32> = OnceCell::new();
-
+        //
         let _ = PADDING.set(ui.spacing().item_spacing.x * 0.);
+        //
 
         egui_extras::StripBuilder::new(ui)
             .size(egui_extras::Size::exact(*PADDING.get().unwrap()))
@@ -217,22 +247,37 @@ impl super::Tool for GenTool {
 
                 strip.cell(|ui| {
                     egui::ScrollArea::vertical().show(ui, |ui| {
-                        let crate::State { 
-                            phonotactics, 
-                            language, 
-                            focus, .. 
-                        } = state;
-            
-                        for syllable in phonotactics.iter_mut() {
+                        let phonotactics_len = phonotactics.len();
+
+                        for (idx, syllable) in phonotactics.iter_mut().enumerate() {
                             let syllable = SyllableRefMut {
+                                idx,
                                 syllable,
                                 language,
                             };
+
+                            let activate = activate && idx == phonotactics_len - 1;
                     
                             ui.horizontal(|ui| {
-                                Self::syllable_selector(syllable, ui, focus);
+                                Self::syllable_selector(syllable, ui, focus, activate);
                             });
                         }
+
+                        let syllable = SyllableRefMut {
+                            idx: phonotactics.len(),
+                            syllable: &mut self.syllable_temp,
+                            language,
+                        };
+
+                        if phonotactics_len > 0 {
+                            ui.separator();
+                        }
+
+                        ui.horizontal(|ui| {
+                            Self::syllable_selector(syllable, ui, focus, false);
+
+                            ui.label("Begin building a syllable");
+                        });
                     });
                 });
             });
