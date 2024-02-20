@@ -1,9 +1,9 @@
 use std::{mem, ops};
 
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 
 use crate::app::fonts;
-use crate::{layout, widgets, Focus, FocusBuffer, FocusTarget};
+use crate::{widgets, Focus, FocusBuffer, FocusTarget};
 use crate::{Syllable, SyllableRefMut, SyllabicElement};
 use crate::CONFIG;
 
@@ -31,8 +31,9 @@ impl GenTool {
     ) {
         let SyllableRefMut { syllable, language, .. } = syllable;
 
+        // TODO: Placeholder. Should match the Invalid buttons in `ScaTool`
         let show_invalid = |ui: &mut egui::Ui| {
-            ui.label("\u{2205}")
+            ui.label(fonts::ipa_rt("\u{2205}"))
         };
 
         let mut element_to_delete = None;
@@ -43,7 +44,7 @@ impl GenTool {
                 SyllabicElement::Group(key) => {
                     match language.group_ref(*key) {
                         Some(group) => {
-                            let content = format!("{}", group.name);
+                            let content = group.name.abbrev().to_string();
                             let content = fonts::ipa_rt(content);
 
                             ui.label(content)
@@ -67,10 +68,8 @@ impl GenTool {
             syllable.elems.remove(idx);
         }
 
-        if let Some(buffer) = focus.take(id) {
-            if let FocusBuffer::Group(key) = buffer {
-                syllable.elems.push(SyllabicElement::Group(key));
-            }
+        if let Some(FocusBuffer::Group(key)) = focus.take(id) {
+            syllable.elems.push(SyllabicElement::Group(key));
         }
     }
 

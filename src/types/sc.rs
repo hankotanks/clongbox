@@ -35,7 +35,7 @@ impl Element {
 
                 format!("{}", phoneme)
             },
-            Element::Group(key) => format!("{}", &language[*key].name),
+            Element::Group(key) => language[*key].name.abbrev().to_string(),
             Element::Boundary => String::from("#"),
             Element::Any(elements) => {
                 let mut content = String::from("[");
@@ -417,11 +417,29 @@ impl Field {
     }
 }
 
-#[derive(Default)]
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct SoundChange {
     fields: [Field; 4],
     elems: [Vec<Element>; 4], 
+}
+
+impl Default for SoundChange {
+    fn default() -> Self {
+        Self {
+            fields: [
+                FIELD_DEFAULTS[&TARGET],
+                FIELD_DEFAULTS[&REPLACEMENT],
+                FIELD_DEFAULTS[&ENV_START],
+                FIELD_DEFAULTS[&ENV_END],
+            ],
+            elems: [
+                Vec::default(),
+                Vec::default(),
+                Vec::default(),
+                Vec::default(),
+            ]
+        }
+    }
 }
 
 impl SoundChange {

@@ -76,3 +76,9 @@ pub fn clear() {
         let _ = mem::take(&mut *STATUS.lock());
     }
 }
+
+pub fn clear_hover() {
+    if matches!(&*STATUS.lock(), Status::Hover(_)) {
+        let _ = mem::take(&mut *STATUS.lock());
+    }
+}

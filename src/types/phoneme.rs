@@ -27,6 +27,7 @@ impl Phoneme {
         let content: borrow::Cow<'_, str> = content.into();
         let content = content.as_ref();
 
+        // TODO: Inputs like "a[a]" don't work, but "a [a]" does
         regex::Regex::new(r"([^\s\[\]]+)(\s*\[\s*\S+\s*\])?")
             .unwrap()
             .captures(content.trim())

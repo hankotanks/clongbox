@@ -87,18 +87,16 @@ pub fn phoneme_editor(
                 // TODO: Don't like this implementation of the status message,
                 // probably should add an explanatory label above the panel instead.
                 // To avoid the cluttered status message
-                let status_message = format!("{}Right-click to edit in place. Clearing the name deletes the phoneme", match selection {
-                    Selection::Single(_) | Selection::Multiple(_) => //
-                        "Click to select this phoneme. ",
-                    Selection::Flag { message, .. } => {
-                        if message.is_empty() {
-                            ""
-                        } else {
-                            Box::leak(format!("Click to {message}. ").into_boxed_str())
-                        }
-                    },
-                    Selection::None => "",
-                });
+                let status_message = format!("{}Right-click to edit in place", 
+                    match selection {
+                        Selection::Single(_) | //
+                        Selection::Multiple(_) | //
+                        Selection::Flag { message: "", .. } => "",
+                        Selection::Flag { message, .. } => //
+                            Box::leak(format!("{message}. ").into_boxed_str()),
+                        Selection::None => "",
+                    }
+                );
 
                 status::set_on_hover(&response, status_message);
             }
@@ -177,21 +175,16 @@ fn group_editor_inner(
                     };
                 }
 
-                // TODO: Don't like this implementation of the status message,
-                // probably should add an explanatory label above the panel instead.
-                // To avoid the cluttered status message
-                let status_message = format!("{}Right-click to edit group name. Clearing the name deletes the group", match selection {
-                    Selection::Single(_) | Selection::Multiple(_) => //
-                        "Click to select. ",
-                    Selection::Flag { message, .. } => {
-                        if message.is_empty() {
-                            ""
-                        } else {
-                            Box::leak(format!("Click to {message}. ").into_boxed_str())
-                        }
-                    },
-                    Selection::None => "",
-                });
+                let status_message = format!("{}Right-click to edit group name", 
+                    match selection {
+                        Selection::Single(_) | //
+                        Selection::Multiple(_) | //
+                        Selection::Flag { message: "", .. } => "",
+                        Selection::Flag { message, .. } => //
+                            Box::leak(format!("{message}. ").into_boxed_str()),
+                        Selection::None => "",
+                    }
+                );
 
                 status::set_on_hover(&response, status_message);
             }

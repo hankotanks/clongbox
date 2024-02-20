@@ -2,7 +2,7 @@ use std::mem;
 
 use once_cell::sync::OnceCell;
 
-use crate::{widgets, Focus, FocusBuffer, FocusTarget};
+use crate::{status, widgets, Focus, FocusBuffer, FocusTarget};
 use crate::app::fonts;
 use crate::sc;
 use crate::CONFIG;
@@ -76,7 +76,8 @@ fn show_sc_element_inner(
             ui.label(content)
         },
         sc::Element::Group(key) => {
-            let content = fonts::ipa_rt(format!("{}", language[*key].name));
+            let content = language[*key].name.abbrev().to_string();
+            let content = fonts::ipa_rt(content);
         
             ui.label(content)
         },
@@ -149,7 +150,7 @@ fn show_sc_element_inner(
                 focus.clear();
             } 
 
-            if focus.get_id() == id {
+            let response = if focus.get_id() == id {
                 let response = ui.toggle_value(&mut true, content);
 
                 if response.clicked() {
@@ -172,7 +173,11 @@ fn show_sc_element_inner(
                 }
 
                 response
-            }
+            };
+
+            status::set_on_hover(&response, "Replace this invalid phoneme...");
+
+            response
         },
     }
 }

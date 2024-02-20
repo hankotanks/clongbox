@@ -11,8 +11,8 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self { 
-            window_sidebar_width: 260., 
-            window_main_width: 460., 
+            window_sidebar_width: 272., 
+            window_main_width: 448., 
             window_main_height: 480., 
             selection_stroke: egui::Stroke {
                 width: 1.5,

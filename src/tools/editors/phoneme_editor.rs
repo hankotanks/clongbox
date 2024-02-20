@@ -3,7 +3,7 @@ use std::mem;
 
 use once_cell::sync::OnceCell;
 
-use crate::{widgets, FocusTarget, FocusBuffer, layout};
+use crate::{layout, widgets, FocusBuffer, FocusTarget, CONFIG};
 use crate::{Phoneme, PhonemeKey, PhonemeSrc};
 use crate::GroupKey;
 use crate::language::Language;
@@ -15,7 +15,6 @@ pub enum PhonemeEditor {
         phoneme_key: PhonemeKey, 
         phoneme_editor_state: widgets::EditorState<PhonemeKey>, 
         groups: BTreeSet<GroupKey>,
-        group_editor_state: widgets::EditorState<GroupKey>,
         rm: bool,
         clear: bool,
     },
@@ -149,28 +148,29 @@ impl PhonemeEditor {
     fn group_panel_inner(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
         let Self::Editing {
             phoneme_key,
-            groups,
-            group_editor_state, ..
+            groups, ..
         } = self else {
             panic!();
         };
 
         for key in groups.clone().into_iter() {
             if let Some(group) = state.language.group_ref_mut(key) {
-                let mut should_remove = false;
+                let content = fonts::ipa_rt(format!("{}", group.name));
 
-                widgets::group_editor(
-                    ui, 
-                    &mut state.focus, 
-                    group, 
-                    group_editor_state, 
-                    &mut Selection::Flag { 
-                        flag: &mut should_remove, 
-                        message: "remove selected phoneme from this group"
-                    },
-                );
+                let response = ui.label(content);
 
-                if should_remove {
+                if response.hovered() {
+                    let rect = response.rect.expand2(egui::Vec2 {
+                        x: ui.spacing().button_padding.x,
+                        y: 0.,
+                    });
+
+                    ui.painter().rect_stroke(rect, CONFIG.selection_rounding, ui.visuals().window_stroke);
+                }
+                
+                let response = widgets::deletion_overlay_corner(&response, ui);
+
+                if response.clicked {
                     groups.remove(&key);
 
                     if state.focus.needs(DISC_GROUPS) {
@@ -265,7 +265,6 @@ impl super::Editor for PhonemeEditor {
                 phoneme_key,
                 phoneme_editor_state: widgets::EditorState::None,
                 groups: get_groups(&state.language, phoneme_key),
-                group_editor_state: widgets::EditorState::None,
                 rm: false,
                 clear: false,
             };
@@ -314,7 +313,6 @@ impl super::Editor for PhonemeEditor {
                 phoneme_key: key, 
                 phoneme_editor_state: widgets::EditorState::None, 
                 groups: get_groups(&state.language, key),
-                group_editor_state: widgets::EditorState::None,
                 rm: false,
                 clear: false,
             };

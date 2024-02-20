@@ -66,7 +66,9 @@ impl FocusTarget {
                     !selected.as_ref().unwrap().contains(key),
             FocusTarget::PhonemeEditorGroups { .. } => false,
             FocusTarget::PhonemeEditorSelect //
-                if matches!(buffer, FocusBuffer::Phoneme { .. }) => true,
+                if matches!(buffer, FocusBuffer::Phoneme { 
+                    src: PhonemeSrc::Language, .. 
+                }) => true,
             FocusTarget::PhonemeEditorSelect => false,
             FocusTarget::GroupEditorSelect //
                 if matches!(buffer, FocusBuffer::Group(_)) => true,
@@ -245,10 +247,12 @@ impl Focus {
                 let mut status = String::from("Selecting ");
 
                 for (idx, valid_buffer) in valid.into_iter().enumerate() {
-                    let content = if idx == 0 {
+                    let content = if idx == 0 && idx == len - 1 {
+                        format!("{}. ", valid_buffer)
+                    } else if idx == 0 {
                         String::from(valid_buffer)
                     } else if idx == len - 1 {
-                        format!(" & {}.", valid_buffer)
+                        format!(" & {}. ", valid_buffer)
                     } else {
                         format!(", {}", valid_buffer)
                     };

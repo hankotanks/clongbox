@@ -78,7 +78,7 @@ impl GroupPane {
                 PhonemeSrc::Language, 
                 Selection::Flag {
                     flag: &mut flag,
-                    message: "view this phoneme in the editor",
+                    message: "View this phoneme in the editor",
                 },
             );
 
