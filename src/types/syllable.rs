@@ -20,6 +20,12 @@ impl Syllable {
     pub fn is_empty(&self) -> bool {
         self.elems.is_empty()
     }
+
+    pub fn is_valid(&self) -> bool {
+        !self.elems.is_empty() && self.elems.iter().fold(true, |valid, elem| {
+            valid && !matches!(elem, SyllabicElement::Invalid) 
+        })
+    }
 }
 
 pub struct SyllableRefMut<'a> {

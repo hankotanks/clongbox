@@ -28,6 +28,10 @@ pub struct State {
     #[serde(skip)]
     pub phonotactics: Vec<Syllable>,
 
+    // TODO: This member should be serializable one day (and parsed from file)
+    #[serde(skip)]
+    pub word_gen_batch: Vec<sync::Arc<str>>,
+
     #[serde(skip)]
     pub focus: Focus,
 }
@@ -201,6 +205,7 @@ impl<'a> Into<State> for StateParser<'a> {
             sound_changes_broken: broken,
             lexicon,
             phonotactics: Vec::new(), // TODO
+            word_gen_batch: Vec::new(), // TODO
             focus: Focus::default(),
         }
     }

@@ -1,26 +1,35 @@
-use std::{mem, ops};
+use std::{mem, ops, sync};
 
 use once_cell::sync::OnceCell;
+use rand::seq::{IteratorRandom, SliceRandom};
 
 use crate::app::fonts;
+use crate::language::{Language, PhonemeRef};
 use crate::{widgets, Focus, FocusBuffer, FocusTarget};
 use crate::{Syllable, SyllableRefMut, SyllabicElement};
 use crate::CONFIG;
 
-pub struct GenTool {
-    syllable_temp: Syllable,
+#[derive(Clone, Copy)]
+pub struct GenToolSettings {
     prob_mono: f64,
     prob_dropoff: f64,
+    batch_size: usize,
 }
 
-impl Default for GenTool {
+impl Default for GenToolSettings {
     fn default() -> Self {
         Self {
-            syllable_temp: Syllable::default(),
-            prob_mono: 2.5,
-            prob_dropoff: 2.5,
+            prob_mono: 0.15,
+            prob_dropoff: 0.,
+            batch_size: 50,
         }
     }
+}
+
+#[derive(Default)]
+pub struct GenTool {
+    syllable_temp: Syllable,
+    settings: GenToolSettings,
 }
 
 impl GenTool {
@@ -33,7 +42,7 @@ impl GenTool {
 
         // TODO: Placeholder. Should match the Invalid buttons in `ScaTool`
         let show_invalid = |ui: &mut egui::Ui| {
-            ui.label(fonts::ipa_rt("\u{2205}"))
+            ui.label(fonts::ipa_rt("\u{2205}").color(ui.visuals().error_fg_color))
         };
 
         let mut element_to_delete = None;
@@ -151,30 +160,27 @@ impl super::Tool for GenTool {
     fn name(&self) -> &'static str { "Word Generation" }
 
     fn show(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
-        let Self {
-            prob_mono,
-            prob_dropoff, ..
-        } = self;
+        let Self { settings, .. } = self;
 
         let prob_mono_slider = egui::Slider::new(
-            prob_mono, 
-            ops::RangeInclusive::new(0., 6.)
+            &mut settings.prob_mono, 
+            ops::RangeInclusive::new(0., 1.)
         ).custom_formatter(|n, _| {
             fn contains(start: f64, end: f64, n: f64) -> bool {
                 ops::RangeInclusive::new(start, end).contains(&n)
             }
 
-            let content = if contains(0., 1., n) {
+            let content = if n == 0. {
                 "Never"
-            } else if contains(1., 2., n) {
+            } else if contains(0., 0.25, n) {
                 "Rare"
-            } else if contains(2., 3., n) {
+            } else if contains(0.25, 0.50, n) {
                 "Less Frequent"
-            } else if contains(3., 4., n) {
+            } else if contains(0.50, 0.75, n) {
                 "Frequent"
-            } else if contains(4., 5., n) {
+            } else if contains(0.75, 1., n) {
                 "Mostly"
-            } else if contains(5., 6., n) {
+            } else if n == 1. {
                 "Always"
             } else {
                 unreachable!();
@@ -188,20 +194,20 @@ impl super::Tool for GenTool {
         ui.add(prob_mono_slider);
 
         let prob_dropoff_slider = egui::Slider::new(
-            prob_dropoff,
-            ops::RangeInclusive::new(0., 4.)
+            &mut settings.prob_dropoff,
+            ops::RangeInclusive::new(0., 0.3)
         ).custom_formatter(|n, _| {
             fn contains(start: f64, end: f64, n: f64) -> bool {
                 ops::RangeInclusive::new(start, end).contains(&n)
             }
 
-            let content = if contains(0., 1., n) {
+            let content = if n == 0. {
                 "Equiprobable"
-            } else if contains(1., 2., n) {
+            } else if contains(0., 0.1, n) {
                 "Slow"
-            } else if contains(2., 3., n) {
+            } else if contains(0.1, 0.2, n) {
                 "Medium"
-            } else if contains(3., 4., n) {
+            } else if contains(0.2, 0.3, n) {
                 "Fast"
             } else {
                 unreachable!();
@@ -213,7 +219,9 @@ impl super::Tool for GenTool {
         ui.label("Dropoff");
 
         ui.vertical_centered_justified(|ui| {
-            ui.add(prob_dropoff_slider);
+            // TODO: Enable this widget when phoneme re-ordering is implemented
+            ui.add_enabled(false, prob_dropoff_slider)
+                .on_disabled_hover_text("Phoneme dropoff not yet implemented");
         });
 
         ui.separator();
@@ -221,7 +229,8 @@ impl super::Tool for GenTool {
         let crate::State { 
             phonotactics, 
             language, 
-            focus, .. 
+            focus, 
+            word_gen_batch, .. 
         } = state;
 
         let activate = !self.syllable_temp.is_empty();
@@ -248,18 +257,26 @@ impl super::Tool for GenTool {
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         let phonotactics_len = phonotactics.len();
 
-                        for (idx, syllable) in phonotactics.iter_mut().enumerate() {
-                            let syllable = SyllableRefMut {
-                                idx,
-                                syllable,
-                                language,
-                            };
+                        let mut idx = 0;
 
-                            let activate = activate && idx == phonotactics_len - 1;
-                    
-                            ui.horizontal(|ui| {
-                                Self::syllable_selector(syllable, ui, focus, activate);
-                            });
+                        while idx < phonotactics.len() {
+                            if phonotactics[idx].is_empty() {
+                                phonotactics.remove(idx);
+                            } else {
+                                let activate = activate && idx == phonotactics.len() - 1;
+
+                                let syllable = SyllableRefMut {
+                                    idx,
+                                    syllable: &mut phonotactics[idx],
+                                    language,
+                                };
+                        
+                                ui.horizontal(|ui| {
+                                    Self::syllable_selector(syllable, ui, focus, activate);
+                                });
+
+                                idx += 1;
+                            }
                         }
 
                         let syllable = SyllableRefMut {
@@ -280,5 +297,138 @@ impl super::Tool for GenTool {
                     });
                 });
             });
+
+        // If there's at least one invalid
+        let invalid = phonotactics
+            .iter()
+            .fold(false, |v, s| v || !s.is_valid());
+
+        // If there's at least one valid
+        let enabled = phonotactics
+            .iter()
+            .fold(false, |v, s| v || s.is_valid());
+
+        ui.horizontal(|ui| {
+            let response = ui.add_enabled(
+                enabled,
+                egui::Button::new("Generate Batch")
+            );
+
+            if invalid && enabled {
+                let content = "Invalid syllables will be skipped";
+                let content = egui::RichText::new(content).italics();
+
+                ui.label(content);
+            } else if phonotactics.is_empty() {
+                ui.label("Can't generate words without rules");
+            } else if !enabled && invalid && !phonotactics.is_empty() {
+                ui.label("Must have at least one valid rule");
+            }
+    
+            if response.clicked() {
+                generate_batch(*settings, word_gen_batch, &phonotactics, &language);
+            }
+        });
+    }
+}
+
+fn generate_syllable(
+    settings: GenToolSettings,
+    word: &mut String,
+    phonotactics: &[Syllable],
+    language: &Language,
+) {
+    match phonotactics.choose(&mut rand::thread_rng()) {
+        Some(syllable) => {
+            if !syllable.is_valid() {
+                generate_syllable(settings, word, phonotactics, language);
+            }
+
+            let Syllable { elems, .. } = syllable;
+
+            // TODO: We don't need to be creating String instances here
+            fn phoneme_content(phoneme_ref: PhonemeRef<'_>) -> String {
+                let PhonemeRef { 
+                    phoneme, 
+                    grapheme, .. 
+                } = phoneme_ref;
+
+                let content = match grapheme {
+                    Some(grapheme) => grapheme,
+                    None => phoneme,
+                };
+
+                format!("{}", content)
+            }
+
+            for elem in elems.iter().copied() {
+                // TODO: Reason about whether these unwraps are safe
+                let elem_raw = match elem {
+                    SyllabicElement::Phoneme(key) => {
+                        let phoneme = language.phoneme_ref(key).unwrap();
+
+                        phoneme_content(phoneme)
+                    },
+                    SyllabicElement::Group(key) => {
+                        let group = language.group_ref(key).unwrap();
+
+                        match group.phonemes.choose(&mut rand::thread_rng()) {
+                            Some(phoneme) => phoneme_content(phoneme),
+                            None => String::from(""),
+                        }
+                    },
+                    SyllabicElement::Invalid => unreachable!(),
+                };
+
+                word.push_str(&elem_raw);
+            }
+        },
+        None => unreachable!(),
+    }
+}
+
+fn generate_word(
+    settings: GenToolSettings,
+    phonotactics: &[Syllable],
+    language: &Language
+) -> sync::Arc<str> {
+    // TODO: Rudimentary
+
+    let GenToolSettings { prob_mono, .. } = settings;
+
+    let mut word = String::from("");
+
+    if rand::random::<f64>() < prob_mono {
+        generate_syllable(settings, &mut word, phonotactics, language)
+    } else {
+        loop {
+            generate_syllable(settings, &mut word, phonotactics, language);
+
+            // TODO: Magic number, maybe add a slider?
+            if rand::random::<f64>() < 0.5 {
+                break;
+            }
+        }
+    }
+
+    sync::Arc::from(word)
+}
+
+fn generate_batch(
+    settings: GenToolSettings, 
+    batch: &mut Vec<sync::Arc<str>>,
+    phonotactics: &[Syllable],
+    language: &Language,
+) {
+    batch.clear();
+
+    let GenToolSettings { batch_size, .. } = settings;
+
+    for _ in 0..batch_size {
+        let word = generate_word(settings, phonotactics, language);
+
+        if !word.is_empty() { 
+            batch.push(word);
+        }
     }
 }
