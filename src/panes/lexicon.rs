@@ -10,6 +10,18 @@ enum LexiconTool { Apply, Batch, }
 impl Default for LexiconTool {
     fn default() -> Self { Self::Apply }
 }
+use std::{collections::BTreeSet, sync};
+
+use once_cell::sync::OnceCell;
+
+use crate::{app::fonts, layout, status};
+
+#[derive(Clone, Copy, PartialEq)]
+enum LexiconTool { Apply, Batch, }
+
+impl Default for LexiconTool {
+    fn default() -> Self { Self::Apply }
+}
 
 #[derive(Default)]
 pub struct LexiconPane {
@@ -143,7 +155,9 @@ impl super::Pane for LexiconPane {
         ui: &mut egui::Ui
     ) {
         let crate::State {
+        let crate::State {
             lexicon,
+            word_gen_batch, ..
             word_gen_batch, ..
         } = state;
 
