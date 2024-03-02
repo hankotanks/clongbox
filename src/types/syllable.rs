@@ -15,16 +15,16 @@ pub struct Syllable {
 impl Syllable { 
     pub fn len(&self) -> usize {
         self.elems.len()
-    } 
+    }
 
     pub fn is_empty(&self) -> bool {
         self.elems.is_empty()
     }
 
     pub fn is_valid(&self) -> bool {
-        !self.elems.is_empty() && self.elems.iter().fold(true, |valid, elem| {
-            valid && !matches!(elem, SyllabicElement::Invalid) 
-        })
+        !self.elems.is_empty() && self.elems
+            .iter()
+            .all(|elem| !matches!(elem, SyllabicElement::Invalid))
     }
 }
 

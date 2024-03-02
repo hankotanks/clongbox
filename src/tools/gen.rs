@@ -154,83 +154,12 @@ impl GenTool {
             ui.painter().rect_stroke(rect, CONFIG.selection_rounding, stroke);
         }
     }
-}
 
-impl super::Tool for GenTool {
-    fn name(&self) -> &'static str { "Word Generation" }
-
-    fn show(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
-        let Self { settings, .. } = self;
-
-        let prob_mono_slider = egui::Slider::new(
-            &mut settings.prob_mono, 
-            ops::RangeInclusive::new(0., 1.)
-        ).custom_formatter(|n, _| {
-            fn contains(start: f64, end: f64, n: f64) -> bool {
-                ops::RangeInclusive::new(start, end).contains(&n)
-            }
-
-            let content = if n == 0. {
-                "Never"
-            } else if contains(0., 0.25, n) {
-                "Rare"
-            } else if contains(0.25, 0.50, n) {
-                "Less Frequent"
-            } else if contains(0.50, 0.75, n) {
-                "Frequent"
-            } else if contains(0.75, 1., n) {
-                "Mostly"
-            } else if n == 1. {
-                "Always"
-            } else {
-                unreachable!();
-            };
-            
-            String::from(content)
-        });
-
-        ui.label("Monosyllables");
-
-        ui.add(prob_mono_slider);
-
-        let prob_dropoff_slider = egui::Slider::new(
-            &mut settings.prob_dropoff,
-            ops::RangeInclusive::new(0., 0.3)
-        ).custom_formatter(|n, _| {
-            fn contains(start: f64, end: f64, n: f64) -> bool {
-                ops::RangeInclusive::new(start, end).contains(&n)
-            }
-
-            let content = if n == 0. {
-                "Equiprobable"
-            } else if contains(0., 0.1, n) {
-                "Slow"
-            } else if contains(0.1, 0.2, n) {
-                "Medium"
-            } else if contains(0.2, 0.3, n) {
-                "Fast"
-            } else {
-                unreachable!();
-            };
-
-            String::from(content)
-        });
-
-        ui.label("Dropoff");
-
-        ui.vertical_centered_justified(|ui| {
-            // TODO: Enable this widget when phoneme re-ordering is implemented
-            ui.add_enabled(false, prob_dropoff_slider)
-                .on_disabled_hover_text("Phoneme dropoff not yet implemented");
-        });
-
-        ui.separator();
-
+    fn syllable_selection_panel(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
         let crate::State { 
             phonotactics, 
             language, 
-            focus, 
-            word_gen_batch, .. 
+            focus, .. 
         } = state;
 
         let activate = !self.syllable_temp.is_empty();
@@ -297,43 +226,143 @@ impl super::Tool for GenTool {
                     });
                 });
             });
+    }
+}
 
-        // If there's at least one invalid
-        let invalid = phonotactics
-            .iter()
-            .fold(false, |v, s| v || !s.is_valid());
+impl super::Tool for GenTool {
+    fn name(&self) -> &'static str { "Word Generation" }
 
-        // If there's at least one valid
-        let enabled = phonotactics
-            .iter()
-            .fold(false, |v, s| v || s.is_valid());
-
-        ui.horizontal(|ui| {
-            let response = ui.add_enabled(
-                enabled,
-                egui::Button::new("Generate Batch")
-            );
-
-            if invalid && enabled {
-                let content = "Invalid syllables will be skipped";
-                let content = egui::RichText::new(content).italics();
-
-                ui.label(content);
-            } else if phonotactics.is_empty() {
-                ui.label("Can't generate words without rules");
-            } else if !enabled && invalid && !phonotactics.is_empty() {
-                ui.label("Must have at least one valid rule");
+    fn show(&mut self, state: &mut crate::State, ui: &mut egui::Ui) {
+        let prob_mono_slider = egui::Slider::new(
+            &mut self.settings.prob_mono, 
+            ops::RangeInclusive::new(0., 1.)
+        ).custom_formatter(|n, _| {
+            fn contains(start: f64, end: f64, n: f64) -> bool {
+                ops::RangeInclusive::new(start, end).contains(&n)
             }
-    
-            if response.clicked() {
-                generate_batch(*settings, word_gen_batch, &phonotactics, &language);
+
+            let content = if n == 0. {
+                "Never"
+            } else if contains(0., 0.25, n) {
+                "Rare"
+            } else if contains(0.25, 0.50, n) {
+                "Less Frequent"
+            } else if contains(0.50, 0.75, n) {
+                "Frequent"
+            } else if contains(0.75, 1., n) {
+                "Mostly"
+            } else if n == 1. {
+                "Always"
+            } else {
+                unreachable!();
+            };
+            
+            String::from(content)
+        });
+
+        ui.label("Monosyllables");
+
+        ui.add(prob_mono_slider);
+
+        let prob_dropoff_slider = egui::Slider::new(
+            &mut self.settings.prob_dropoff,
+            ops::RangeInclusive::new(0., 0.3)
+        ).custom_formatter(|n, _| {
+            fn contains(start: f64, end: f64, n: f64) -> bool {
+                ops::RangeInclusive::new(start, end).contains(&n)
             }
+
+            let content = if n == 0. {
+                "Equiprobable"
+            } else if contains(0., 0.1, n) {
+                "Slow"
+            } else if contains(0.1, 0.2, n) {
+                "Medium"
+            } else if contains(0.2, 0.3, n) {
+                "Fast"
+            } else {
+                unreachable!();
+            };
+
+            String::from(content)
+        });
+
+        ui.label("Dropoff");
+
+        ui.vertical_centered_justified(|ui| {
+            // TODO: Enable this widget when phoneme re-ordering is implemented
+            ui.add_enabled(false, prob_dropoff_slider)
+                .on_disabled_hover_text("Phoneme dropoff not yet implemented");
+        });
+
+        ui.separator();
+
+        static BOTTOM_PANEL_HEIGHT: OnceCell<f32> = OnceCell::new();
+
+        let _ = BOTTOM_PANEL_HEIGHT.set({
+            ui.text_style_height(&egui::TextStyle::Button) + //
+            ui.spacing().button_padding.y * 2. + //
+            ui.spacing().item_spacing.y * 2.
+        });
+
+        egui_extras::StripBuilder::new(ui)
+            .size(egui_extras::Size::remainder())
+            .size(egui_extras::Size::exact(*BOTTOM_PANEL_HEIGHT.get().unwrap()))
+            .vertical(|mut strip| {
+                strip.cell(|ui| {
+                    self.syllable_selection_panel(state, ui);
+                });
+
+                strip.cell(|ui| {
+                    let crate::State { 
+                        phonotactics, 
+                        word_gen_batch,
+                        language, .. 
+                    } = state;
+
+                    // If there's at least one invalid
+                    let invalid = phonotactics
+                        .iter()
+                        .any(|s| !s.is_valid());
+
+                    // If there's at least one valid
+                    let enabled = phonotactics
+                        .iter()
+                        .any(Syllable::is_valid);
+
+                    ui.horizontal(|ui| {
+                    let response = ui.add_enabled(
+                        enabled,
+                        egui::Button::new("Generate Batch")
+                    );
+
+                    let warning = if invalid && enabled {
+                        "Invalid syllables will be skipped"
+                    } else if phonotactics.is_empty() {
+                        "Can't generate words without rules"
+                    } else if !enabled && invalid && !phonotactics.is_empty() {
+                        "Must have at least one valid rule"
+                    } else {
+                        ""
+                    };
+
+                    let warning = egui::RichText::new(warning)
+                        .color(ui.visuals().warn_fg_color);
+
+                    ui.add_enabled(false, egui::Label::new(warning));
+                    //ui.label(warning);
+
+                    if response.clicked() {
+                        generate_batch(self.settings, word_gen_batch, phonotactics, language);
+                    }
+                });
+            });
         });
     }
 }
 
 fn generate_syllable(
-    settings: GenToolSettings,
+    _settings: GenToolSettings,
     word: &mut String,
     phonotactics: &[Syllable],
     language: &Language,
@@ -341,14 +370,14 @@ fn generate_syllable(
     match phonotactics.choose(&mut rand::thread_rng()) {
         Some(syllable) => {
             if !syllable.is_valid() {
-                generate_syllable(settings, word, phonotactics, language);
+                generate_syllable(_settings, word, phonotactics, language);
             }
 
             let Syllable { elems, .. } = syllable;
 
             // TODO: We don't need to be creating String instances here
             fn phoneme_content(phoneme_ref: PhonemeRef<'_>) -> String {
-                let PhonemeRef { 
+                let PhonemeRef {
                     phoneme, 
                     grapheme, .. 
                 } = phoneme_ref;
