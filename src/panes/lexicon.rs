@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync};
+use std::{collections::BTreeSet, mem, sync};
 
 use once_cell::sync::OnceCell;
 
@@ -11,9 +11,18 @@ impl Default for LexiconTool {
     fn default() -> Self { Self::Apply }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum LexiconSort { None, Alphabetical, Length }
+
+impl Default for LexiconSort {
+    fn default() -> Self { Self::None }
+}
+
 #[derive(Default)]
 pub struct LexiconPane {
     selection: BTreeSet<usize>,
+    sort: LexiconSort,
+    sort_rev: bool,
     tool: LexiconTool,
 }
 
@@ -153,7 +162,9 @@ impl super::Pane for LexiconPane {
                 strip.cell(|ui| { 
                     ui.push_id(0x20C69A3, |ui| {
                         egui::Frame::default()
-                            .show(ui, |ui| { show_lexicon(ui, lexicon); });
+                            .show(ui, |ui| { 
+                                show_lexicon(&mut self.sort, &mut self.sort_rev, ui, lexicon); 
+                            });
                     }); 
                 });
 
@@ -289,13 +300,11 @@ fn show_lexicon_inner(ui: &mut egui::Ui, lexicon: &[sync::Arc<str>]) {
                                     };
     
                                     ui.set_clip_rect(rect);
-    
+                                    
                                     let content = fonts::ipa_rt(&*lexicon[idx]);
                                     let content = egui::Label::new(content);
     
-                                    ui.horizontal(|ui| {
-                                        ui.put(rect, content);
-                                    });
+                                    ui.put(rect, content);
     
                                     idx += 1;
                                 } else {
@@ -315,15 +324,29 @@ fn show_lexicon_inner(ui: &mut egui::Ui, lexicon: &[sync::Arc<str>]) {
         });
 }
 
-fn show_lexicon(ui: &mut egui::Ui, lexicon: &[sync::Arc<str>]) {
+fn show_lexicon(sort: &mut LexiconSort, sort_rev: &mut bool, ui: &mut egui::Ui, lexicon: &[sync::Arc<str>]) {
     ui.horizontal_wrapped(|ui| {
-        // TODO: Implement controls
-        let _ = ui.add_enabled(false, egui::Button::new("TODO"));
+        let _ = ui.add_enabled(false, egui::Button::new("Sort"));
+
+        ui.separator();
+
+        ui.selectable_value(sort, LexiconSort::None, "Original");
+        ui.selectable_value(sort, LexiconSort::Alphabetical, "Alphabetically");
+        ui.selectable_value(sort, LexiconSort::Length, "By Length");
+
+        ui.separator();
+
+        let content = match sort_rev {
+            true => "\u{039B}",
+            false => "V",
+        };
+
+        if ui.button(content).clicked() {
+            let _ = mem::replace(sort_rev, !*sort_rev);
+        }
     });
 
     ui.separator();
 
-    ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
-        show_lexicon_inner(ui, lexicon);
-    });
+    show_lexicon_inner(ui, lexicon);
 }
